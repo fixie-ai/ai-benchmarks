@@ -3,7 +3,7 @@ import json
 import time  
 
 # URL of the text-to-speech API
-url = 'https://api.elevenlabs.io/v1/text-to-speech/flq6f7yk4E4fJM5XTYuZ/stream?optimize_streaming_latency=0'
+url = 'https://api.elevenlabs.io/v1/text-to-speech/flq6f7yk4E4fJM5XTYuZ/stream?optimize_streaming_latency=4'
 
 # Headers for the API request
 headers = {
