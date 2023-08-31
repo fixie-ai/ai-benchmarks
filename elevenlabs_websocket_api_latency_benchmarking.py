@@ -25,7 +25,8 @@ use_text_chunker = False  # New parameter to control whether to use the text_chu
 
 def text_chunker(text: str) -> Iterator[str]:
     """
-    Used during input streaming to chunk text blocks and set last char to space. Use this function to simulate the default behavior of the official 11labs Library.
+    Used during input streaming to chunk text blocks and set last char to space. 
+    Use this function to simulate the default behavior of the official 11labs Library.
     """
     splitters = (".", ",", "?", "!", ";", ":", "—", "-", "(", ")", "[", "]", "}", " ")
     buffer = ""
