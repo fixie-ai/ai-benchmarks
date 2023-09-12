@@ -10,17 +10,19 @@ from typing import Iterator
 logging.basicConfig(level=logging.INFO)
 
 # Configuration section
-voice_id = "fATgBRI8wg5KkDFg8vBd"
-model = 'eleven_monolingual_v1'
+voice_id = "voice_id_here"
+model = 'eleven_monolingual_v1' #eleven_monolingual_v1, eleven_english_v2, eleven_multilingual_v1, eleven_multilingual_v2
 stability = 0.5
 similarity_boost = False
 chunk_length_schedule = [50]
 xi_api_key = "key_here"
-max_length = 50 #Maximum length for audio string truncation
+max_length = 1 #Maximum length for audio string truncation
 delay_time = 0.0001 #Use this to simulate the token output speed of your LLM
 try_trigger_generation = True
 optimize_streaming_latency = "4" #The default setting in the WS API is 4. Change it to 3 or lower to improve the pronunciation of numbers and dates to enable the text normalizer.
 use_text_chunker = False  # New parameter to control whether to use the text_chunker function
+output_format = "mp3_44100"  # Output format of the generated audio. Must be one of: mp3_44100, pcm_16000, pcm_22050, pcm_24000, pcm_44100
+
 
 
 def text_chunker(text: str) -> Iterator[str]:
@@ -57,7 +59,7 @@ def simulate_text_stream():
     ]
     """
     text_chunks = [
-        "Each method has its pros and cons. The oven method is good for a large amount, while the stovetop offers quick results and better control. The air fryer is efficient but may require a couple of batches for a large amount. The microwave is the fastest but may result in uneven crispiness. ",
+        "Hello world! This is a sample of a streaming voice. ",
     ]
     for text_chunk in text_chunks:
         time.sleep(delay_time)
@@ -74,7 +76,7 @@ def truncate_audio_string(audio_string):
 
 
 async def text_to_speech():
-    uri = f"wss://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream-input?model_type={model}&optimize_streaming_latency={optimize_streaming_latency}"
+    uri = f"wss://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream-input?model_type={model}&optimize_streaming_latency={optimize_streaming_latency}&output_format={output_format}"
 
     start_time = time.time()
     chunk_times = []
