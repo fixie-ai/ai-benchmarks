@@ -5,29 +5,38 @@ import base64
 import time
 import logging
 from typing import Iterator
+import os
+import argparse
+
+# Read some settings from command line
+parser = argparse.ArgumentParser()
+parser.add_argument("--voice")
+parser.add_argument("--model", default="eleven_monolingual_v1")
+parser.add_argument("--text-chunker", action="store_true", default=False)
+args = parser.parse_args()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
 # Configuration section
-voice_id = "voice_id_here"
-model = 'eleven_monolingual_v1' #eleven_monolingual_v1, eleven_english_v2, eleven_multilingual_v1, eleven_multilingual_v2
+voice_id = args.voice
+# choices: eleven_monolingual_v1, eleven_english_v2, eleven_multilingual_v1, eleven_multilingual_v2
+model = args.model
 stability = 0.5
 similarity_boost = False
 chunk_length_schedule = [50]
-xi_api_key = "key_here"
-max_length = 1 #Maximum length for audio string truncation
-delay_time = 0.0001 #Use this to simulate the token output speed of your LLM
+xi_api_key = os.environ["ELEVEN_API_KEY"]
+max_length = 1  # Maximum length for audio string truncation
+delay_time = 0.0001  # Use this to simulate the token output speed of your LLM
 try_trigger_generation = True
-optimize_streaming_latency = "4" #The default setting in the WS API is 4. Change it to 3 or lower to improve the pronunciation of numbers and dates to enable the text normalizer.
-use_text_chunker = False  # New parameter to control whether to use the text_chunker function
+optimize_streaming_latency = "4"  # The default setting in the WS API is 4. Change it to 3 or lower to improve the pronunciation of numbers and dates to enable the text normalizer.
+use_text_chunker = args.text_chunker
 output_format = "mp3_44100"  # Output format of the generated audio. Must be one of: mp3_44100, pcm_16000, pcm_22050, pcm_24000, pcm_44100
-
 
 
 def text_chunker(text: str) -> Iterator[str]:
     """
-    Used during input streaming to chunk text blocks and set last char to space. 
+    Used during input streaming to chunk text blocks and set last char to space.
     Use this function to simulate the default behavior of the official 11labs Library.
     """
     splitters = (".", ",", "?", "!", ";", ":", "—", "-", "(", ")", "[", "]", "}", " ")
@@ -43,6 +52,7 @@ def text_chunker(text: str) -> Iterator[str]:
     if buffer != "":
         logging.info(f"Chunked text: {buffer}")
         yield buffer + " "
+
 
 def simulate_text_stream():
     """
@@ -65,6 +75,7 @@ def simulate_text_stream():
         time.sleep(delay_time)
         yield text_chunk
 
+
 def truncate_audio_string(audio_string):
     """
     Truncate audio string if it exceeds the max_length
@@ -72,7 +83,6 @@ def truncate_audio_string(audio_string):
     if len(audio_string) > max_length:
         return audio_string[:max_length] + "..."
     return audio_string
-
 
 
 async def text_to_speech():
@@ -92,13 +102,11 @@ async def text_to_speech():
             "text": " ",
             "voice_settings": {
                 "stability": stability,
-                "similarity_boost": similarity_boost
+                "similarity_boost": similarity_boost,
             },
-            "generation_config": {
-                "chunk_length_schedule": chunk_length_schedule
-            },
+            "generation_config": {"chunk_length_schedule": chunk_length_schedule},
             "xi_api_key": xi_api_key,
-            "try_trigger_generation": try_trigger_generation
+            "try_trigger_generation": try_trigger_generation,
         }
         await websocket.send(json.dumps(bos_message))
 
@@ -107,18 +115,22 @@ async def text_to_speech():
                 for chunk in text_chunker(text_chunk):
                     input_message = {
                         "text": chunk,
-                        "try_trigger_generation": try_trigger_generation
+                        "try_trigger_generation": try_trigger_generation,
                     }
                     input_message_time = time.time()
-                    logging.info(f"[{input_message_time:.4f}] Sending input message: {chunk}")
+                    logging.info(
+                        f"[{input_message_time:.4f}] Sending input message: {chunk}"
+                    )
                     await websocket.send(json.dumps(input_message))
             else:
                 input_message = {
                     "text": text_chunk,
-                    "try_trigger_generation": try_trigger_generation
+                    "try_trigger_generation": try_trigger_generation,
                 }
                 input_message_time = time.time()
-                logging.info(f"[{input_message_time:.4f}] Sending input message: {text_chunk}")
+                logging.info(
+                    f"[{input_message_time:.4f}] Sending input message: {text_chunk}"
+                )
                 await websocket.send(json.dumps(input_message))
 
             try:
@@ -138,23 +150,23 @@ async def text_to_speech():
 
                 logging.info(f"Server response: {data_copy}")
 
-                if data["audio"]:
+                if "audio" in data:
                     chunk = base64.b64decode(data["audio"])
                     logging.info("Received audio chunk")
                     chunk_received_time = time.time()
                     if not first_chunk_received:
                         first_chunk_received = True
                         first_chunk_time = chunk_received_time - connection_open_time
-                        logging.info(f"Time to receive first chunk after connection opened: {first_chunk_time:.4f} seconds")
+                        logging.info(
+                            f"Time to receive first chunk after connection opened: {first_chunk_time:.4f} seconds"
+                        )
                     chunk_times.append(chunk_received_time - connection_open_time)
                 else:
                     logging.info("No audio data in the response")
             except asyncio.TimeoutError:
                 pass
 
-        eos_message = {
-            "text": ""
-        }
+        eos_message = {"text": ""}
         eos_message_time = time.time()
         logging.info(f"[{eos_message_time:.4f}] Sending eos_message")
         await websocket.send(json.dumps(eos_message))
@@ -165,15 +177,15 @@ async def text_to_speech():
                 response_received_time = time.time()
                 logging.info(f"[{response_received_time:.4f}] Response received")
                 data = json.loads(response)
-
-                if data["audio"]:
+                audio = data.get("audio")
+                if audio is not None:
                     truncated_audio = truncate_audio_string(data["audio"])
                     logging.info(f"Server response: {{'audio': '{truncated_audio}'}}")
                 else:
                     logging.info("Server response:", data)
                 await asyncio.sleep(0)
 
-                if data["audio"]:
+                if audio is not None:
                     chunk = base64.b64decode(data["audio"])
                     logging.info("Received audio chunk")
                     await asyncio.sleep(0)
@@ -193,11 +205,19 @@ async def text_to_speech():
 
     logging.info("\n-----Latency Summary-----")
     logging.info(f"Time to open connection: {time_to_open_connection:.4f} seconds")
-    if first_chunk_time is not None:  # Check if first_chunk_time is not None before trying to print it
-        logging.info(f"Time to first chunk after connection opened: {first_chunk_time:.4f} seconds")
+    if (
+        first_chunk_time is not None
+    ):  # Check if first_chunk_time is not None before trying to print it
+        logging.info(
+            f"Time to first chunk after connection opened: {first_chunk_time:.4f} seconds"
+        )
     for i, chunk_time in enumerate(chunk_times, start=1):
-        logging.info(f"Time to receive chunk {i} after connection opened: {chunk_time:.4f} seconds")
-    logging.info(f"Total time WebSocket connection was open: {total_time_websocket_was_open:.4f} seconds")
+        logging.info(
+            f"Time to receive chunk {i} after connection opened: {chunk_time:.4f} seconds"
+        )
+    logging.info(
+        f"Total time WebSocket connection was open: {total_time_websocket_was_open:.4f} seconds"
+    )
 
 
 asyncio.get_event_loop().run_until_complete(text_to_speech())
