@@ -1,0 +1,6 @@
+openai
+anthropic
+requests
+websockets
+aiohttp
+asyncio

@@ -12,10 +12,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("text", nargs="?", default=DEFAULT_TEXT)
 parser.add_argument(
     "--model",
+    "-m",
     default=DEFAULT_MODEL_ID,
 )
 parser.add_argument(
-    "--samples",
+    "--num_samples",
+    "-n",
     type=int,
     default=DEFAULT_SAMPLES,
 )
@@ -38,9 +40,9 @@ data = {
     "voice_settings": {"stability": 0.5, "similarity_boost": 1},
 }
 
-latencies = []  # Initialize an empty list to store latencies
+latencies = []
 
-for i in range(args.samples):  # Make 10 API calls
+for i in range(args.samples):
     start_time = (
         time.perf_counter()
     )  # Record the current time before sending the API request
