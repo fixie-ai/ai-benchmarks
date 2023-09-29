@@ -28,7 +28,7 @@ class ApiResult:
 
 
 async def make_chunk_gen(response):
-    async for line in await response.content:
+    async for line in response.content:
         line = line.decode("utf-8").strip()
         if line.startswith("data:"):
             content = line[5:].strip()
@@ -38,14 +38,7 @@ async def make_chunk_gen(response):
                 yield text_chunk
 
 
-async def make_api_call(session, url, headers, data, index):
-    start_time = time.time()
-    async with session.post(url, headers=headers, data=data) as resp:
-        latency = time.time() - start_time
-        return ApiResult(index, latency, resp, make_chunk_gen(resp))
-
-
-async def get_fastest_response():
+async def make_api_call(session, index):
     url = "https://api.openai.com/v1/chat/completions"
     headers = {
         "Content-Type": "application/json",
@@ -62,39 +55,56 @@ async def get_fastest_response():
             "max_tokens": args.max_tokens,
         }
     )
+    start_time = time.time()
+    response = await session.post(url, headers=headers, data=data)
+    latency = time.time() - start_time
+    return ApiResult(index, latency, response, make_chunk_gen(response))
 
+
+async def async_main():
     print(f"Racing {args.num_requests} API calls to {args.model}...")
     async with aiohttp.ClientSession() as session:
         tasks = [
-            make_api_call(session, url, headers, data, i)
+            asyncio.create_task(make_api_call(session, i))
             for i in range(args.num_requests)
         ]
-        results = []
+        # Wait for just the first task to complete
         done = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-        chosen_result = done[0].pop().result()
-        results.append(chosen_result)
+        chosen = done[0].pop().result()
+        print(f"Chosen API Call: {chosen.index} ({chosen.latency:.2f}s)")
 
-        print(f"\nChosen API Call: {chosen_result.index}\n")
-
-        async for chunk in chosen_result.chunk_gen:
+        # Stream out the tokens
+        async for chunk in chosen.chunk_gen:
             print(chunk, end="", flush=True)
-        print("\n")  # Print a newline at the end
-        return results
+        print("\n")
+
+        # Wait for the rest of the tasks to complete and clean up
+        done = await asyncio.wait(tasks)
+        results = [task.result() for task in done[0]]
+        for result in results:
+            await result.response.release()
+
+    # Print out each result, sorted by index
+    results.sort(key=lambda x: x.index)
+    task1 = results[0]
+    for r in results:
+        if r.response.ok:
+            print(
+                f"API Call {r.index} Initial Response Latency: {r.latency:.2f} seconds"
+            )
+        else:
+            print(
+                f"API Call {r.index} Result: {r.response.status} in {r.latency:.2f} seconds"
+            )
+
+    # Print a timing summary
+    latency_saved = task1.latency - chosen.latency
+    print(f"\nLatency saved: {latency_saved:.2f} seconds")
+    print(f"Optimized response time: {chosen.latency:.2f} seconds")
+    med_index1 = (len(results) - 1) // 2
+    med_index2 = len(results) // 2
+    median_latency = (results[med_index1].latency + results[med_index2].latency) / 2
+    print(f"Median response time: {median_latency:.2f} seconds")
 
 
-results = asyncio.run(get_fastest_response())
-results.sort(key=lambda x: x.index)
-task1 = results[0]
-for result in results:
-    print(
-        f"Initial Response Latency for API Call {result.index}: {result.latency:.2f} seconds"
-    )
-
-results.sort(key=lambda x: x.latency)
-chosen_task = results[0]
-latency_saved = task1.latency - chosen_task.latency
-print(f"\nLatency saved: {latency_saved:.2f} seconds")
-print(f"Optimized response time: {chosen_task.latency:.2f} seconds")
-
-
-print(f"Median response time: {results[len(results)//2].latency:.2f} seconds")
+asyncio.run(async_main())
