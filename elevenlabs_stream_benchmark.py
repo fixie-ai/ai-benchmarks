@@ -4,9 +4,10 @@ import time
 import os
 import argparse
 
-DEFAULT_SAMPLES = 10
 DEFAULT_TEXT = "I'm calling for Jim."
 DEFAULT_MODEL_ID = "eleven_monolingual_v1"
+DEFAULT_SAMPLES = 10
+DEFAULT_VOICE = "flq6f7yk4E4fJM5XTYuZ"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("text", nargs="?", default=DEFAULT_TEXT)
@@ -21,10 +22,21 @@ parser.add_argument(
     type=int,
     default=DEFAULT_SAMPLES,
 )
+parser.add_argument(
+    "--optimize-streaming-latency",
+    "-o",
+    type=int,
+    default=4,
+)
+parser.add_argument(
+    "--voice",
+    "-v",
+    default=DEFAULT_VOICE,
+)
 args = parser.parse_args()
 
 # URL of the text-to-speech API
-url = "https://api.elevenlabs.io/v1/text-to-speech/flq6f7yk4E4fJM5XTYuZ/stream?optimize_streaming_latency=4"
+url = f"https://api.elevenlabs.io/v1/text-to-speech/{args.voice}/stream?optimize_streaming_latency={args.optimize_streaming_latency}"
 
 # Headers for the API request
 headers = {
@@ -42,13 +54,13 @@ data = {
 
 latencies = []
 
-for i in range(args.samples):
+for i in range(args.num_samples):
     start_time = (
         time.perf_counter()
     )  # Record the current time before sending the API request
     response = requests.post(url, headers=headers, data=json.dumps(data), stream=True)
     if not response.ok:
-        print("Error: " + response.json()["detail"]["message"])
+        print("Error: " + response.text)
         exit(1)
 
     # Calculate latency
