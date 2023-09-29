@@ -10,8 +10,8 @@ import argparse
 
 # Read some settings from command line
 parser = argparse.ArgumentParser()
-parser.add_argument("--voice")
-parser.add_argument("--model", default="eleven_monolingual_v1")
+parser.add_argument("--voice", "-v")
+parser.add_argument("--model", "-m", default="eleven_monolingual_v1")
 parser.add_argument("--text-chunker", action="store_true", default=False)
 args = parser.parse_args()
 
