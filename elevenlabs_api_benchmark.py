@@ -36,8 +36,7 @@ try_trigger_generation = True
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description='''\
-This script demonstrates the use of HTTP and WebSocket APIs for text-to-speech conversion.
-Choose the API type, input text, model, and other parameters to generate the speech output.
+The script allows for comprehensive benchmarking of the 11Labs API for text-to-speech generation to achieve the lowest possible latency, given any combination of parameters.
 ''')
 
 API_group = parser.add_argument_group('API Type')
