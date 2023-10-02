@@ -20,20 +20,20 @@ DEFAULT_TEXT = """Ah, these kids today! They don't know the struggle, I'll tell 
 DEFAULT_VOICE = "s3://voice-cloning-zero-shot/7c339a9d-370f-4643-adf5-4134e3ec9886/mlae02/manifest.json"
 
 # Audio settings
-DEFAULT_QUALITY = "draft"
-DEFAULT_OUTPUT_FORMAT = "mp3"
-DEFAULT_SPEED = 1
-DEFAULT_SAMPLE_RATE = 24000
+DEFAULT_QUALITY = "draft"  # Quality of the audio. Default is "draft". Other options are low, medium, high, and premium.
+DEFAULT_OUTPUT_FORMAT = "mp3"  
+DEFAULT_SPEED = 1  #Values 1 to 5
+DEFAULT_SAMPLE_RATE = 24000  # Sample rate of the audio. A number between 8000 and 48000.
 
 # Random generator settings
-DEFAULT_SEED = None
-DEFAULT_TEMPERATURE = None
+DEFAULT_SEED = None  # Seed for the random generator. If None, a random seed will be used.
+DEFAULT_TEMPERATURE = None  # Temperature for the random generator. Controls variance. If None, the model's default temperature will be used.
 
 # Voice engine settings
-DEFAULT_VOICE_ENGINE = "PlayHT2.0"
-DEFAULT_EMOTION = "male_angry"
-DEFAULT_VOICE_GUIDANCE = 2
-DEFAULT_STYLE_GUIDANCE = 20
+DEFAULT_VOICE_ENGINE = "PlayHT2.0"  # Voice engine to be used. Default is "PlayHT1.0".
+DEFAULT_EMOTION = "male_angry"  # Emotion of the speech. Only supported when voice_engine is set to "PlayHT2.0".
+DEFAULT_VOICE_GUIDANCE = 2  # Voice guidance level. A number between 1 and 6. Lower numbers reduce the voice's uniqueness, higher numbers maximize its individuality. Only supported when voice_engine is set to "PlayHT2.0".
+DEFAULT_STYLE_GUIDANCE = 20  # Style guidance level. A number between 1 and 30. Lower numbers reduce the strength of the chosen emotion, higher numbers create a more emotional performance. Only supported when voice_engine is set to "PlayHT2.0".
 
 # argument parser
 parser = argparse.ArgumentParser(description="Stream audio from server.")
