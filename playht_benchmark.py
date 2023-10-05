@@ -54,9 +54,14 @@ parser.add_argument(
 )
 parser.add_argument("--transport", "-t", default="rest", help="Transport to be use")
 parser.add_argument("--voice", "-v", default=DEFAULT_VOICE_ID, help="Voice to be used")
-parser.add_argument("--quality", default=DEFAULT_QUALITY, help="Quality of the audio")
 parser.add_argument(
-    "--speed", default=DEFAULT_SPEED, type=int, help="Speed of the speech"
+    "--quality", "-q", default=DEFAULT_QUALITY, help="Quality of the audio"
+)
+parser.add_argument(
+    "--speed", "-s", default=DEFAULT_SPEED, type=int, help="Speed of the speech"
+)
+parser.add_argument(
+    "--format", "-f", default=DEFAULT_OUTPUT_FORMAT, help="Output format of the audio"
 )
 parser.add_argument(
     "--warmup",
@@ -149,7 +154,7 @@ def create_rest_body(text: str):
         "text": text,
         "voice": args.voice,
         "quality": args.quality,
-        "output_format": DEFAULT_OUTPUT_FORMAT,
+        "output_format": args.format,
         "speed": args.speed,
         "sample_rate": DEFAULT_SAMPLE_RATE,
         "seed": DEFAULT_SEED,
@@ -234,9 +239,14 @@ def stream_grpc(gen, latency_data: LatencyData):
 def generate_grpc(latency_data: LatencyData):
     advanced = client.Client.AdvancedOptions(grpc_addr="prod.turbo.play.ht:443")
     grpc_client = client.Client(PLAYHT_USER_ID, PLAYHT_API_KEY, advanced=advanced)
-    options = client.TTSOptions(
-        format=api_pb2.FORMAT_MP3, voice=args.voice, quality="faster"
-    )
+    if args.format == "mp3":
+        format = api_pb2.FORMAT_MP3
+    elif args.format == "wav":
+        format = api_pb2.FORMAT_WAV
+    else:
+        logging.error("Invalid format")
+        exit(1)
+    options = client.TTSOptions(format=format, voice=args.voice, quality="faster")
     if args.warmup:
         logging.info("Sending warmup request...")
         list(grpc_client.tts(WARMUP_TEXT, options))
@@ -273,9 +283,7 @@ def main():
         f"Time to receive headers: {latency_data.headers_received*1000:.2f} ms"
     )
     if latency_data.chunk_times:
-        logging.info(
-            f"Time to first chunk after headers received: {latency_data.chunk_times[0]*1000:.2f} ms"
-        )
+        logging.info(f"Time to first chunk: {latency_data.chunk_times[0]*1000:.2f} ms")
     logging.info(f"Total time: {latency_data.total_time*1000:.2f} ms")
     logging.info("=" * 40 + "\n")
 
