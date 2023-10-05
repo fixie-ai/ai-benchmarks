@@ -246,7 +246,7 @@ def generate_grpc(latency_data: LatencyData):
     else:
         logging.error("Invalid format")
         exit(1)
-    options = client.TTSOptions(format=format, voice=args.voice, quality="faster")
+    options = client.TTSOptions(format=format, voice=args.voice, quality=args.quality)
     if args.warmup:
         logging.info("Sending warmup request...")
         list(grpc_client.tts(WARMUP_TEXT, options))
