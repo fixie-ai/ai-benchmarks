@@ -4,3 +4,4 @@ requests
 websockets
 aiohttp
 asyncio
+pyht

@@ -1,11 +1,14 @@
 import argparse
 import os
 import subprocess
-from pathlib import Path
 import aiohttp
 import asyncio
 import time
 import logging
+import dataclasses
+from typing import Optional
+from pyht import client
+from pyht.protos import api_pb2
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO
@@ -15,7 +18,7 @@ PLAYHT_API_KEY = os.environ.get("PLAYHT_API_KEY")
 PLAYHT_USER_ID = os.environ.get("PLAYHT_USER_ID")
 
 # Defaults Text and voice settings
-DEFAULT_TEXT = """Ah, these kids today! They don't know the struggle, I'll tell ya that much. Back in my day, the internet wasn't this instant-gratification paradise it is now. Oh no, it was a test of patience and determination. You'd sit down, ready to see what the "World Wide Web" had to offer, and then you'd have to endure that awful, ear-piercing dial-up tone. And you'd hope and pray that someone wasn't using the phone, because if they were, you were outta luck. No internet for you!"""
+DEFAULT_TEXT = "Ah, these kids today! They don't know the struggle, I'll tell ya that much. Back in my day, the internet wasn't this instant-gratification paradise it is now."
 DEFAULT_VOICE_ID = "s3://voice-cloning-zero-shot/7c339a9d-370f-4643-adf5-4134e3ec9886/mlae02/manifest.json"
 
 # Audio settings
@@ -38,6 +41,9 @@ DEFAULT_EMOTION = "male_angry"  # Emotion of the speech. Only supported when voi
 DEFAULT_VOICE_GUIDANCE = 2  # Voice guidance level. A number between 1 and 6. Lower numbers reduce the voice's uniqueness, higher numbers maximize its individuality. Only supported when voice_engine is set to "PlayHT2.0".
 DEFAULT_STYLE_GUIDANCE = 20  # Style guidance level. A number between 1 and 30. Lower numbers reduce the strength of the chosen emotion, higher numbers create a more emotional performance. Only supported when voice_engine is set to "PlayHT2.0".
 
+WARMUP_TEXT = "a"
+CHUNK_SIZE = 4096
+
 # argument parser
 parser = argparse.ArgumentParser(description="Stream audio from server.")
 parser.add_argument(
@@ -46,10 +52,18 @@ parser.add_argument(
 parser.add_argument(
     "--play", "-p", default=False, action="store_true", help="Play the audio using mpv"
 )
+parser.add_argument("--transport", "-t", default="rest", help="Transport to be use")
 parser.add_argument("--voice", "-v", default=DEFAULT_VOICE_ID, help="Voice to be used")
 parser.add_argument("--quality", default=DEFAULT_QUALITY, help="Quality of the audio")
 parser.add_argument(
     "--speed", default=DEFAULT_SPEED, type=int, help="Speed of the speech"
+)
+parser.add_argument(
+    "--warmup",
+    "-w",
+    default=False,
+    action="store_true",
+    help="Perform a warmup call before generation",
 )
 parser.add_argument(
     "--voice-engine", default=DEFAULT_VOICE_ENGINE, help="Voice engine to be used"
@@ -70,42 +84,38 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-# use parsed arguments
-data = {
-    "text": args.text,
-    "voice": args.voice,
-    "quality": args.quality,
-    "output_format": DEFAULT_OUTPUT_FORMAT,
-    "speed": args.speed,
-    "sample_rate": DEFAULT_SAMPLE_RATE,
-    "seed": DEFAULT_SEED,
-    "temperature": DEFAULT_TEMPERATURE,
-    "voice_engine": args.voice_engine,
-    "emotion": args.emotion,
-    "voice_guidance": args.voice_guidance,
-    "style_guidance": args.style_guidance,
-}
 
-url = "https://play.ht/api/v2/tts/stream"
-headers = {
-    "AUTHORIZATION": f"Bearer {PLAYHT_API_KEY}",
-    "X-USER-ID": PLAYHT_USER_ID,
-    "accept": "audio/mpeg",
-    "content-type": "application/json",
-}
+@dataclasses.dataclass
+class LatencyData:
+    def __init__(self):
+        self.start_time = 0
+        self.headers_received = 0
+        self.first_chunk = 0
+        self.chunk_times = []
+        self.total_time = 0
 
-start_time = time.perf_counter()
+    def start(self):
+        self.start_time = time.perf_counter()
 
-# initialize dictionary to store latency data
-latency_data = {
-    "headers_received": None,
-    "first_chunk": None,
-    "chunk_times": [],
-    "total_time": None,
-}
+    def set_headers_received(self):
+        self.headers_received = time.perf_counter() - self.start_time
+
+    def set_first_chunk(self):
+        self.first_chunk = time.perf_counter() - self.start_time
+
+    def add_chunk_time(self):
+        self.chunk_times.append(time.perf_counter() - self.start_time)
+
+    def set_total_time(self):
+        self.total_time = time.perf_counter() - self.start_time
+
+    start_time: float
+    headers_received: float
+    chunk_times: list[float]
+    total_time: float
 
 
-async def stream(response, start_time, data):
+async def stream_rest(response, latency_data: LatencyData):
     if args.play:
         mpv_command = ["mpv", "--no-cache", "--no-terminal", "--", "fd://0"]
         mpv_process = subprocess.Popen(
@@ -117,20 +127,9 @@ async def stream(response, start_time, data):
     else:
         mpv_process = None
 
-    first_chunk = True
     bytes_received = 0
-
-    while True:
-        chunk = await response.content.read(4096)
-        if not chunk:
-            break
-
-        if first_chunk:
-            latency_data["first_chunk"] = time.perf_counter() - start_time
-            first_chunk = False
-
-        latency_data["chunk_times"].append(time.perf_counter() - start_time)
-
+    async for chunk in response.content.iter_chunked(CHUNK_SIZE):
+        latency_data.add_chunk_time()
         if mpv_process:
             mpv_process.stdin.write(chunk)
         bytes_received += len(chunk)
@@ -139,43 +138,147 @@ async def stream(response, start_time, data):
             end="\r",
         )
 
+    latency_data.set_total_time()
     if mpv_process:
         mpv_process.stdin.close()
         mpv_process.wait()
 
-    latency_data["total_time"] = time.perf_counter() - start_time
+
+def create_rest_body(text: str):
+    return {
+        "text": text,
+        "voice": args.voice,
+        "quality": args.quality,
+        "output_format": DEFAULT_OUTPUT_FORMAT,
+        "speed": args.speed,
+        "sample_rate": DEFAULT_SAMPLE_RATE,
+        "seed": DEFAULT_SEED,
+        "temperature": DEFAULT_TEMPERATURE,
+        "voice_engine": args.voice_engine,
+        "emotion": args.emotion,
+        "voice_guidance": args.voice_guidance,
+        "style_guidance": args.style_guidance,
+    }
 
 
-async def main():
+async def async_generate_rest(latency_data: LatencyData):
+    url = "https://play.ht/api/v2/tts/stream"
+    headers = {
+        "AUTHORIZATION": f"Bearer {PLAYHT_API_KEY}",
+        "X-USER-ID": PLAYHT_USER_ID,
+        "accept": "audio/mpeg",
+        "content-type": "application/json",
+    }
     async with aiohttp.ClientSession() as session:
-        logging.info("Sending request to the server...")
-        async with session.post(url, headers=headers, json=data) as response:
-            latency_data["headers_received"] = time.perf_counter() - start_time
-            logging.info(f"Latency: {latency_data['headers_received']*1000:.2f} ms")
+        if args.warmup:
+            logging.info("Sending warmup request...")
+            async with session.post(
+                url, headers=headers, json=create_rest_body(WARMUP_TEXT)
+            ) as response:
+                pass
+        logging.info("Sending REST request...")
+        if latency_data:
+            latency_data.start()
+        async with session.post(
+            url, headers=headers, json=create_rest_body(args.text)
+        ) as response:
+            latency_data.set_headers_received()
+            logging.info(f"Latency: {latency_data.headers_received*1000:.2f} ms")
             logging.info(f"Status code: {response.status}")
             logging.info("-" * 40)
-            logging.info(f"Text: \"{data['text']}\"")
+            logging.info(f'Text: "{args.text}"')
             logging.info("-" * 40)
             if response.ok and "audio/mpeg" in response.headers.get("Content-Type"):
                 logging.info("Streaming audio...")
                 logging.info("-" * 40)
-                await stream(response, start_time, data)
+                await stream_rest(response, latency_data)
             else:
                 logging.error("No audio data in the response.")
 
 
-# main function
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
-
-# Latency Summary
-logging.info("\n" + "=" * 40)
-logging.info("LATENCY SUMMARY")
-logging.info("-" * 40)
-logging.info(f"Time to receive headers: {latency_data['headers_received']*1000:.2f} ms")
-if latency_data["first_chunk"] is not None:
-    logging.info(
-        f"Time to first chunk after headers received: {latency_data['first_chunk']*1000:.2f} ms"
+def generate_rest(latency_data: LatencyData):
+    return asyncio.get_event_loop().run_until_complete(
+        async_generate_rest(latency_data)
     )
-logging.info(f"Total time: {latency_data['total_time']*1000:.2f} ms")
-logging.info("=" * 40 + "\n")
+
+
+def stream_grpc(gen, latency_data: LatencyData):
+    if args.play:
+        mpv_command = ["mpv", "--no-cache", "--no-terminal", "--", "fd://0"]
+        mpv_process = subprocess.Popen(
+            mpv_command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    else:
+        mpv_process = None
+
+    bytes_received = 0
+    for chunk in gen:
+        latency_data.add_chunk_time()
+        if mpv_process:
+            mpv_process.stdin.write(chunk)
+        bytes_received += len(chunk)
+        print(
+            f"Received chunk of size {len(chunk):<5} bytes | Total bytes received: {bytes_received:<6}",
+            end="\r",
+        )
+
+    latency_data.set_total_time()
+    if mpv_process:
+        mpv_process.stdin.close()
+        mpv_process.wait()
+
+
+def generate_grpc(latency_data: LatencyData):
+    advanced = client.Client.AdvancedOptions(grpc_addr="prod.turbo.play.ht:443")
+    grpc_client = client.Client(PLAYHT_USER_ID, PLAYHT_API_KEY, advanced=advanced)
+    options = client.TTSOptions(
+        format=api_pb2.FORMAT_MP3, voice=args.voice, quality="faster"
+    )
+    if args.warmup:
+        logging.info("Sending warmup request...")
+        list(grpc_client.tts(WARMUP_TEXT, options))
+    logging.info("Sending GRPC request...")
+    latency_data.start()
+    result = grpc_client.tts(args.text, options)
+    header = next(result)
+    latency_data.set_headers_received()
+    logging.info(f"Latency: {latency_data.headers_received*1000:.2f} ms")
+    logging.info("-" * 40)
+    logging.info(f'Text: "{args.text}"')
+    logging.info("-" * 40)
+    logging.info("Streaming audio...")
+    logging.info("-" * 40)
+    stream_grpc(result, latency_data)
+    grpc_client.close()
+
+
+def main():
+    latency_data = LatencyData()
+    if args.transport == "rest":
+        generate_rest(latency_data)
+    elif args.transport == "grpc":
+        generate_grpc(latency_data)
+    else:
+        logging.error("Invalid transport")
+        exit(1)
+
+    # Latency Summary
+    logging.info("\n" + "=" * 40)
+    logging.info("LATENCY SUMMARY")
+    logging.info("-" * 40)
+    logging.info(
+        f"Time to receive headers: {latency_data.headers_received*1000:.2f} ms"
+    )
+    if latency_data.chunk_times:
+        logging.info(
+            f"Time to first chunk after headers received: {latency_data.chunk_times[0]*1000:.2f} ms"
+        )
+    logging.info(f"Total time: {latency_data.total_time*1000:.2f} ms")
+    logging.info("=" * 40 + "\n")
+
+
+if __name__ == "__main__":
+    main()
