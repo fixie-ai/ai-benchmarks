@@ -7,8 +7,12 @@ import asyncio
 import websockets
 import base64
 import logging
+import magic
 from typing import Iterator
+import io
+from pydub import AudioSegment
 
+# Set logging to DEBUG for websocket API diagnostics
 logging.basicConfig(level=logging.INFO)
 
 # Defaults for both scripts
@@ -20,17 +24,22 @@ DEFAULT_VOICE_ID = "pNInz6obpgDQGcFmaJgB"
 DEFAULT_OUTPUT_FORMAT = "mp3_44100"
 DEFAULT_STABILITY = 0.5
 DEFAULT_SIMILARITY_BOOST = False
-DEFAULT_XI_API_KEY = os.environ["ELEVEN_API_KEY"],
+DEFAULT_XI_API_KEY = os.environ["ELEVEN_API_KEY"]
 
 # Configuration for HTTP API
 DEFAULT_CHUNK_SIZE = 7868
 
 # Configuration for WebSocket API
 chunk_length_schedule = [50]
-max_length = 10  # Maximum length for audio string truncation
+max_length = 1  # Maximum length for audio string truncation
 delay_time = 0.0001  # Use this to simulate the token output speed of your LLM
 try_trigger_generation = True
 
+# Define a dictionary that maps MIME types to audio format names
+AUDIO_FORMATS = {
+    "audio/mpeg": "MP3",
+    "application/octet-stream": "PCM",
+}
 
 # Argument parsing
 parser = argparse.ArgumentParser(
@@ -68,10 +77,12 @@ websocket_group.add_argument("--text_chunker", action="store_true", default=Fals
 general_group = parser.add_argument_group('General Parameters')
 general_group.add_argument("--voice_id", default=DEFAULT_VOICE_ID,
                            help="ID of the voice for speech synthesis")
+general_group.add_argument("--detect_audio_format", action='store_true',
+                           help="If set to True, the script checks the audio format and provides details like length, channels, and sample width of the audio")
 
 args = parser.parse_args()
 
-
+DETECT_AUDIO_FORMAT = args.detect_audio_format
 
 # Text chunker function
 def text_chunker(text: str) -> Iterator[str]:
@@ -120,9 +131,43 @@ def truncate_audio_string(audio_string):
         return audio_string[:max_length] + "..."
     return audio_string
 
+# Analyze audio data function
+def analyze_audio(audio_data):
+    # create a Magic object for MIME type detection
+    mime = magic.Magic(mime=True)
+    
+    # detect the MIME type of the audio data
+    file_type = mime.from_buffer(audio_data)
+    audio_format = AUDIO_FORMATS.get(file_type, "Unknown")
+    
+    # create an in-memory file-like object
+    temp = io.BytesIO(audio_data)
+
+    # determine frame rate based on output_format
+    frame_rate = int(args.output_format.split('_')[-1]) if 'pcm' in args.output_format else 44100
+
+    # analyze the audio data with PyDub
+    if audio_format == "MP3":
+        audio = AudioSegment.from_mp3(temp)
+    elif audio_format == "PCM":
+        audio = AudioSegment.from_file(temp, format="raw", frame_rate=frame_rate, channels=1, sample_width=2)
+    else:
+        print(f"Unsupported audio format: {audio_format}")
+        return
+
+    # Print out audio information to console
+    print(f"    - Audio format: {audio_format}")
+    print(f"    - Length: {len(audio)} milliseconds")
+    print(f"    - Channels: {audio.channels}")
+    print(f"    - Sample width: {audio.sample_width}")
+    print(f"    - Frame rate: {audio.frame_rate}")
+    print(f"    - Frame width: {audio.frame_width}")
+    print(f"    - Number of frames: {len(audio.get_array_of_samples())}")
+
+
 # HTTP API request function
 def http_api_request():
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{args.voice_id}/stream?optimize_streaming_latency={args.latency_optimizer}"
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{args.voice_id}/stream?optimize_streaming_latency={args.latency_optimizer}&output_format={args.output_format}"
     headers = {
         "accept": "audio/mpeg",
         "xi-api-key": DEFAULT_XI_API_KEY,
@@ -135,8 +180,9 @@ def http_api_request():
     }
     response_latencies = []
     chunk_latencies = []
+
     for i in range(args.num_samples):
-        print(f"\nAPI Call {i+1}:")
+        print(f"\n# API Call {i+1}:")
         start_time = time.perf_counter()
         response = requests.post(url, headers=headers, data=json.dumps(data), stream=True)
         if not response.ok:
@@ -145,7 +191,7 @@ def http_api_request():
         response_received_time = time.perf_counter()
         response_latency = (response_received_time - start_time) * 1000
         response_latencies.append(response_latency)
-        print(f"  Initial Response (Header) Time: {response_latency:.2f} ms")
+        print(f"  - Initial Response (Header) Time: {response_latency:.2f} ms")
         audio_data = b""
         for chunk in response.iter_content(chunk_size=DEFAULT_CHUNK_SIZE):
             if chunk:
@@ -154,9 +200,13 @@ def http_api_request():
                     chunk_received_time = time.perf_counter()
                     chunk_latency = (chunk_received_time - start_time) * 1000
                     chunk_latencies.append(chunk_latency)
-                   
-                    print(f"  First Playable Chunk (Body) Time: {chunk_latency:.2f} ms")
+                    print(f"  - First Playable Chunk (Body) Time: {chunk_latency:.2f} ms")
                     break
+
+        # Analyze audio data
+        if DETECT_AUDIO_FORMAT:
+            print("  - Audio Analysis:")
+            analyze_audio(audio_data)
 
     average_response_latency = sum(response_latencies) / len(response_latencies)
     median_response_latency = sorted(response_latencies)[len(response_latencies) // 2]
@@ -171,6 +221,7 @@ async def websocket_api_request():
     chunk_times = []
     first_chunk_received = False
     first_chunk_time = None
+
     async with websockets.connect(uri) as websocket:
         connection_open_time = time.time()
         time_to_open_connection = connection_open_time - start_time
@@ -212,6 +263,11 @@ async def websocket_api_request():
                         first_chunk_received = True
                         first_chunk_time = chunk_received_time - start_time  # Calculate the time from the request to the first chunk
                     chunk_times.append(chunk_received_time - connection_open_time)
+
+                    # Analyze audio data
+                    if DETECT_AUDIO_FORMAT:
+                        analyze_audio(chunk)
+
             except asyncio.TimeoutError:
                 pass
         eos_message = {"text": ""}
