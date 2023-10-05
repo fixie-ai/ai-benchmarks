@@ -1,9 +1,14 @@
 # ai-benchmarks
 
 This repo contains a handful of utilities for benchmarking the response latency of popular AI services, including:
+
+Large Language Models (LLMs):
 - OpenAI
 - Anthropic
+
+Text-to-Speech Models (TTS):
 - ElevenLabs
+- PlayHT
 
 ## Initial setup
 
@@ -26,3 +31,18 @@ or
 python elevenlabs_stream_benchmark.py "Haikus I find tricky, With a 5-7-5 count, But I'll give it a go"
 ```
 
+## Playing audio
+
+First, install mpv via
+
+```
+brew install mpv
+```
+
+Then, just pass the -p argument when generating text, e.g., 
+
+```
+python playht_benchmark.py -p "Well, basically I have intuition."
+```
+
+You can use the -v parameter to select which voice to use for generation.
