@@ -42,8 +42,16 @@ args = parser.parse_args()
 
 @dataclasses.dataclass
 class ApiResult:
+    def __init__(self, index, start_time, response, chunk_gen):
+        self.index = index
+        self.start_time = start_time
+        self.latency = time.time() - start_time
+        self.response = response
+        self.chunk_gen = chunk_gen
+
     index: int
-    latency: float
+    start_time: int
+    latency: float  # HTTP response time
     response: aiohttp.ClientResponse
     chunk_gen: Generator[str, None, None]
 
@@ -77,8 +85,7 @@ async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> Ap
     )
     start_time = time.time()
     response = await session.post(url, headers=headers, data=data)
-    latency = time.time() - start_time
-    return ApiResult(index, latency, response, make_openai_chunk_gen(response))
+    return ApiResult(index, start_time, response, make_openai_chunk_gen(response))
 
 
 async def make_anthropic_chunk_gen(response) -> Generator[str, None, None]:
@@ -109,8 +116,32 @@ async def make_anthropic_api_call(
     )
     start_time = time.time()
     response = await session.post(url, headers=headers, data=data)
-    latency = time.time() - start_time
-    return ApiResult(index, latency, response, make_anthropic_chunk_gen(response))
+    return ApiResult(index, start_time, response, make_anthropic_chunk_gen(response))
+
+
+async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
+    text = ""
+    async for line in response.content:
+        line = line.decode("utf-8").strip()
+        obj = json.loads(line)
+        curr_turn = obj["turns"][-1]
+        if curr_turn["role"] == "assistant" and curr_turn["messages"]:
+            new_text = curr_turn["messages"][-1]["content"]
+            delta = new_text[len(text) :]
+            text = new_text
+            yield delta
+
+
+async def make_fixie_api_call(session: aiohttp.ClientSession, index: int) -> ApiResult:
+    url = f"https://api.fixie.ai/api/v1/agents/{args.model}/conversations"
+    headers = {
+        "content-type": "application/json",
+        "authorization": f"Bearer {os.environ['FIXIE_API_KEY']}",
+    }
+    data = json.dumps({"message": args.prompt})
+    start_time = time.time()
+    response = await session.post(url, headers=headers, data=data)
+    return ApiResult(index, start_time, response, make_fixie_chunk_gen(response))
 
 
 async def make_api_call(
@@ -120,6 +151,8 @@ async def make_api_call(
         return await make_openai_api_call(session, index)
     elif model.startswith("claude-"):
         return await make_anthropic_api_call(session, index)
+    elif "/" in model:
+        return await make_fixie_api_call(session, index)
     else:
         raise ValueError(f"Unknown model: {model}")
 
@@ -138,16 +171,26 @@ async def async_main():
         while tasks and not chosen:
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             task = done.pop()
-            results.append(task.result())
-            if task.result().response.ok:
+            result = task.result()
+            results.append(result)
+            if result.response.ok:
                 chosen = task.result()
             else:
+                print(
+                    f"API Call {result.index} failed, status={result.response.status}"
+                )
                 tasks.remove(task)
+        if not chosen:
+            raise ValueError("No successful API calls")
         print(f"Chosen API Call: {chosen.index} ({chosen.latency:.2f}s)")
 
         # Stream out the tokens
+        first_token_time = None
         async for chunk in chosen.chunk_gen:
+            if not first_token_time:
+                first_token_time = time.time()
             print(chunk, end="", flush=True)
+        end_time = time.time()
         print("\n")
 
         # Wait for the rest of the tasks to complete and clean up
@@ -178,6 +221,8 @@ async def async_main():
     med_index2 = len(results) // 2
     median_latency = (results[med_index1].latency + results[med_index2].latency) / 2
     print(f"Median response time: {median_latency:.2f} seconds")
+    print(f"Time to first token: {first_token_time - chosen.start_time:.2f} seconds")
+    print(f"Total time: {end_time - chosen.start_time:.2f} seconds")
 
 
 asyncio.run(async_main())
