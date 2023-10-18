@@ -56,14 +56,28 @@ class ApiResult:
     chunk_gen: Generator[str, None, None]
 
 
+async def post(
+    session: aiohttp.ClientSession,
+    index: int,
+    url: str,
+    headers: dict,
+    data: dict,
+    chunk_gen: callable(aiohttp.ClientResponse),
+):
+    start_time = time.time()
+    response = await session.post(url, headers=headers, data=json.dumps(data))
+    return ApiResult(index, start_time, response, chunk_gen(response))
+
+
 async def make_openai_chunk_gen(response) -> Generator[str, None, None]:
     async for line in response.content:
         line = line.decode("utf-8").strip()
         if line.startswith("data:"):
             content = line[5:].strip()
-            if content != "[DONE]":
-                chunk = json.loads(content)
-                yield chunk["choices"][0]["delta"].get("content", "")
+            if content == "[DONE]":
+                break
+            chunk = json.loads(content)
+            yield chunk["choices"][0]["delta"].get("content", "")
 
 
 async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> ApiResult:
@@ -72,20 +86,16 @@ async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> Ap
         "Content-Type": "application/json",
         "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
     }
-    data = json.dumps(
-        {
-            "model": args.model,
-            "messages": [
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": args.prompt},
-            ],
-            "stream": True,
-            "max_tokens": args.max_tokens,
-        }
-    )
-    start_time = time.time()
-    response = await session.post(url, headers=headers, data=data)
-    return ApiResult(index, start_time, response, make_openai_chunk_gen(response))
+    data = {
+        "model": args.model,
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": args.prompt},
+        ],
+        "stream": True,
+        "max_tokens": args.max_tokens,
+    }
+    return await post(session, index, url, headers, data, make_openai_chunk_gen)
 
 
 async def make_anthropic_chunk_gen(response) -> Generator[str, None, None]:
@@ -106,17 +116,13 @@ async def make_anthropic_api_call(
         "x-api-key": os.environ["ANTHROPIC_API_KEY"],
         "anthropic-version": "2023-06-01",
     }
-    data = json.dumps(
-        {
-            "model": args.model,
-            "prompt": f"\n\nHuman: {args.prompt}\n\nAssistant:",
-            "max_tokens_to_sample": 256,
-            "stream": True,
-        }
-    )
-    start_time = time.time()
-    response = await session.post(url, headers=headers, data=data)
-    return ApiResult(index, start_time, response, make_anthropic_chunk_gen(response))
+    data = {
+        "model": args.model,
+        "prompt": f"\n\nHuman: {args.prompt}\n\nAssistant:",
+        "max_tokens_to_sample": args.max_tokens,
+        "stream": True,
+    }
+    return await post(session, index, url, headers, data, make_anthropic_chunk_gen)
 
 
 async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
@@ -126,6 +132,8 @@ async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
         obj = json.loads(line)
         curr_turn = obj["turns"][-1]
         if curr_turn["role"] == "assistant" and curr_turn["messages"]:
+            if curr_turn["state"] == "done":
+                break
             new_text = curr_turn["messages"][-1]["content"]
             delta = new_text[len(text) :]
             text = new_text
@@ -138,10 +146,8 @@ async def make_fixie_api_call(session: aiohttp.ClientSession, index: int) -> Api
         "content-type": "application/json",
         "authorization": f"Bearer {os.environ['FIXIE_API_KEY']}",
     }
-    data = json.dumps({"message": args.prompt})
-    start_time = time.time()
-    response = await session.post(url, headers=headers, data=data)
-    return ApiResult(index, start_time, response, make_fixie_chunk_gen(response))
+    data = {"message": args.prompt, "runtimeParameters": {}}
+    return await post(session, index, url, headers, data, make_fixie_chunk_gen)
 
 
 async def make_api_call(
@@ -176,12 +182,16 @@ async def async_main():
             if result.response.ok:
                 chosen = task.result()
             else:
-                print(
-                    f"API Call {result.index} failed, status={result.response.status}"
-                )
-                tasks.remove(task)
+                status = result.response.status
+                text = await result.response.text()
+                text = text[:80] + "..." if len(text) > 80 else text
+                print(f"API Call {result.index} failed, status={status} text={text}")
+            tasks.remove(task)
+
+        # Bail out if no tasks succeed
         if not chosen:
-            raise ValueError("No successful API calls")
+            print("No successful API calls")
+            exit(1)
         print(f"Chosen API Call: {chosen.index} ({chosen.latency:.2f}s)")
 
         # Stream out the tokens
@@ -194,10 +204,11 @@ async def async_main():
         print("\n")
 
         # Wait for the rest of the tasks to complete and clean up
-        done = await asyncio.wait(tasks)
-        results += [task.result() for task in done[0]]
-        for result in results:
-            await result.response.release()
+        if tasks:
+            done = await asyncio.wait(tasks)
+            results += [task.result() for task in done[0]]
+            for result in results:
+                await result.response.release()
 
     # Print out each result, sorted by index
     results.sort(key=lambda x: x.index)
