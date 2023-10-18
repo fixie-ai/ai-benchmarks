@@ -131,13 +131,23 @@ async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
         line = line.decode("utf-8").strip()
         obj = json.loads(line)
         curr_turn = obj["turns"][-1]
-        if curr_turn["role"] == "assistant" and curr_turn["messages"]:
+        if (
+            curr_turn["role"] == "assistant"
+            and curr_turn["messages"]
+            and "content" in curr_turn["messages"][-1]
+        ):
             if curr_turn["state"] == "done":
                 break
             new_text = curr_turn["messages"][-1]["content"]
-            delta = new_text[len(text) :]
-            text = new_text
-            yield delta
+            # Sometimes we get a spurious " " message
+            if new_text == " ":
+                continue
+            if new_text.startswith(text):
+                delta = new_text[len(text) :]
+                text = new_text
+                yield delta
+            else:
+                print(f"Warning: got unexpected text: '{new_text}' vs '{text}'")
 
 
 async def make_fixie_api_call(session: aiohttp.ClientSession, index: int) -> ApiResult:
