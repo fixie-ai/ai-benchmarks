@@ -12,6 +12,20 @@ DEFAULT_MODEL = "gpt-3.5-turbo"
 DEFAULT_MAX_TOKENS = 50
 DEFAULT_NUM_REQUESTS = 5
 
+DEFAULT_FUNCTIONS = [
+    {
+        "name": "get_context",
+        "description": "Gets context for the conversation",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "The information desired"},
+            },
+            "required": ["query"],
+        },
+    }
+]
+
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "prompt",
@@ -36,6 +50,13 @@ parser.add_argument(
     type=int,
     default=DEFAULT_NUM_REQUESTS,
     help="Number of requests to make",
+)
+parser.add_argument(
+    "--functions",
+    "-f",
+    type=json.loads,
+    default=DEFAULT_FUNCTIONS,
+    help="Functions to use for the API call",
 )
 args = parser.parse_args()
 
@@ -95,6 +116,9 @@ async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> Ap
         "stream": True,
         "max_tokens": args.max_tokens,
     }
+    if args.functions:
+        data["functions"] = args.functions
+        data["function_call"] = "auto"
     return await post(session, index, url, headers, data, make_openai_chunk_gen)
 
 
@@ -206,7 +230,9 @@ async def async_main():
 
         # Stream out the tokens
         first_token_time = None
+        num_tokens = 0
         async for chunk in chosen.chunk_gen:
+            num_tokens += 1
             if not first_token_time:
                 first_token_time = time.time()
             print(chunk, end="", flush=True)
@@ -243,6 +269,9 @@ async def async_main():
     median_latency = (results[med_index1].latency + results[med_index2].latency) / 2
     print(f"Median response time: {median_latency:.2f} seconds")
     print(f"Time to first token: {first_token_time - chosen.start_time:.2f} seconds")
+    print(
+        f"Tokens: {num_tokens} ({(num_tokens - 1) / (end_time - first_token_time):.0f} tokens/sec)"
+    )
     print(f"Total time: {end_time - chosen.start_time:.2f} seconds")
 
 
