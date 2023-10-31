@@ -54,8 +54,9 @@ parser.add_argument(
 parser.add_argument(
     "--functions",
     "-f",
-    type=json.loads,
-    default=DEFAULT_FUNCTIONS,
+    # type=bool,
+    action="store_true",
+    # default=False,
     help="Functions to use for the API call",
 )
 args = parser.parse_args()
@@ -117,7 +118,7 @@ async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> Ap
         "max_tokens": args.max_tokens,
     }
     if args.functions:
-        data["functions"] = args.functions
+        data["functions"] = DEFAULT_FUNCTIONS
         data["function_call"] = "auto"
     return await post(session, index, url, headers, data, make_openai_chunk_gen)
 
