@@ -1,10 +1,11 @@
-import asyncio
 import aiohttp
-import json
-import time
 import argparse
-import os
+import asyncio
 import dataclasses
+import json
+import os
+import time
+import urllib
 from typing import Generator
 
 DEFAULT_PROMPT = "Say hello."
@@ -45,19 +46,18 @@ parser.add_argument(
     help="Max tokens for the response",
 )
 parser.add_argument(
+    "--base-url",
+    "-b",
+    type=str,
+    default=None,
+    help="Base URL for the LLM API endpoint",
+)
+parser.add_argument(
     "--num-requests",
     "-n",
     type=int,
     default=DEFAULT_NUM_REQUESTS,
     help="Number of requests to make",
-)
-parser.add_argument(
-    "--functions",
-    "-f",
-    # type=bool,
-    action="store_true",
-    # default=False,
-    help="Functions to use for the API call",
 )
 args = parser.parse_args()
 
@@ -99,15 +99,24 @@ async def make_openai_chunk_gen(response) -> Generator[str, None, None]:
             if content == "[DONE]":
                 break
             chunk = json.loads(content)
-            yield chunk["choices"][0]["delta"].get("content", "")
+            if chunk["choices"]:
+                yield chunk["choices"][0]["delta"].get("content", "")
 
 
 async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> ApiResult:
-    url = "https://api.openai.com/v1/chat/completions"
+    url = args.base_url or "https://api.openai.com/v1"
+    use_azure = urllib.parse.urlparse(url).hostname.endswith(".azure.com")
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
     }
+    if use_azure:
+        headers["Api-Key"] = os.environ["AZURE_OPENAI_API_KEY"]
+        url += f"/openai/deployments/{args.model.replace('.', '')}"
+    else:
+        headers["Authorization"] = f"Bearer {os.environ['OPENAI_API_KEY']}"
+    url += "/chat/completions"
+    if use_azure:
+        url += "?api-version=2023-07-01-preview"
     data = {
         "model": args.model,
         "messages": [
@@ -117,9 +126,6 @@ async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> Ap
         "stream": True,
         "max_tokens": args.max_tokens,
     }
-    if args.functions:
-        data["functions"] = DEFAULT_FUNCTIONS
-        data["function_call"] = "auto"
     return await post(session, index, url, headers, data, make_openai_chunk_gen)
 
 
