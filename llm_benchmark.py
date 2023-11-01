@@ -13,20 +13,6 @@ DEFAULT_MODEL = "gpt-3.5-turbo"
 DEFAULT_MAX_TOKENS = 50
 DEFAULT_NUM_REQUESTS = 5
 
-DEFAULT_FUNCTIONS = [
-    {
-        "name": "get_context",
-        "description": "Gets context for the conversation",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "The information desired"},
-            },
-            "required": ["query"],
-        },
-    }
-]
-
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "prompt",
