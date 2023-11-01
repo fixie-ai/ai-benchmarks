@@ -50,10 +50,31 @@ args = parser.parse_args()
 
 @dataclasses.dataclass
 class ApiResult:
+    def __init__(self, index, start_time, response, chunk_gen):
+        self.index = index
+        self.start_time = start_time
+        self.latency = time.time() - start_time
+        self.response = response
+        self.chunk_gen = chunk_gen
+
     index: int
-    latency: float
+    start_time: int
+    latency: float  # HTTP response time
     response: aiohttp.ClientResponse
     chunk_gen: Generator[str, None, None]
+
+
+async def post(
+    session: aiohttp.ClientSession,
+    index: int,
+    url: str,
+    headers: dict,
+    data: dict,
+    chunk_gen: callable(aiohttp.ClientResponse),
+):
+    start_time = time.time()
+    response = await session.post(url, headers=headers, data=json.dumps(data))
+    return ApiResult(index, start_time, response, chunk_gen(response))
 
 
 async def make_openai_chunk_gen(response) -> Generator[str, None, None]:
@@ -61,10 +82,11 @@ async def make_openai_chunk_gen(response) -> Generator[str, None, None]:
         line = line.decode("utf-8").strip()
         if line.startswith("data:"):
             content = line[5:].strip()
-            if content != "[DONE]":
-                chunk = json.loads(content)
-                if chunk["choices"]:
-                    yield chunk["choices"][0]["delta"].get("content", "")
+            if content == "[DONE]":
+                break
+            chunk = json.loads(content)
+            if chunk["choices"]:
+                yield chunk["choices"][0]["delta"].get("content", "")
 
 
 async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> ApiResult:
@@ -81,21 +103,16 @@ async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> Ap
     url += "/chat/completions"
     if use_azure:
         url += "?api-version=2023-07-01-preview"
-    data = json.dumps(
-        {
-            "model": args.model,
-            "messages": [
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": args.prompt},
-            ],
-            "stream": True,
-            "max_tokens": args.max_tokens,
-        }
-    )
-    start_time = time.time()
-    response = await session.post(url, headers=headers, data=data)
-    latency = time.time() - start_time
-    return ApiResult(index, latency, response, make_openai_chunk_gen(response))
+    data = {
+        "model": args.model,
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": args.prompt},
+        ],
+        "stream": True,
+        "max_tokens": args.max_tokens,
+    }
+    return await post(session, index, url, headers, data, make_openai_chunk_gen)
 
 
 async def make_anthropic_chunk_gen(response) -> Generator[str, None, None]:
@@ -116,18 +133,48 @@ async def make_anthropic_api_call(
         "x-api-key": os.environ["ANTHROPIC_API_KEY"],
         "anthropic-version": "2023-06-01",
     }
-    data = json.dumps(
-        {
-            "model": args.model,
-            "prompt": f"\n\nHuman: {args.prompt}\n\nAssistant:",
-            "max_tokens_to_sample": 256,
-            "stream": True,
-        }
-    )
-    start_time = time.time()
-    response = await session.post(url, headers=headers, data=data)
-    latency = time.time() - start_time
-    return ApiResult(index, latency, response, make_anthropic_chunk_gen(response))
+    data = {
+        "model": args.model,
+        "prompt": f"\n\nHuman: {args.prompt}\n\nAssistant:",
+        "max_tokens_to_sample": args.max_tokens,
+        "stream": True,
+    }
+    return await post(session, index, url, headers, data, make_anthropic_chunk_gen)
+
+
+async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
+    text = ""
+    async for line in response.content:
+        line = line.decode("utf-8").strip()
+        obj = json.loads(line)
+        curr_turn = obj["turns"][-1]
+        if (
+            curr_turn["role"] == "assistant"
+            and curr_turn["messages"]
+            and "content" in curr_turn["messages"][-1]
+        ):
+            if curr_turn["state"] == "done":
+                break
+            new_text = curr_turn["messages"][-1]["content"]
+            # Sometimes we get a spurious " " message
+            if new_text == " ":
+                continue
+            if new_text.startswith(text):
+                delta = new_text[len(text) :]
+                text = new_text
+                yield delta
+            else:
+                print(f"Warning: got unexpected text: '{new_text}' vs '{text}'")
+
+
+async def make_fixie_api_call(session: aiohttp.ClientSession, index: int) -> ApiResult:
+    url = f"https://api.fixie.ai/api/v1/agents/{args.model}/conversations"
+    headers = {
+        "content-type": "application/json",
+        "authorization": f"Bearer {os.environ['FIXIE_API_KEY']}",
+    }
+    data = {"message": args.prompt, "runtimeParameters": {}}
+    return await post(session, index, url, headers, data, make_fixie_chunk_gen)
 
 
 async def make_api_call(
@@ -137,6 +184,8 @@ async def make_api_call(
         return await make_openai_api_call(session, index)
     elif model.startswith("claude-"):
         return await make_anthropic_api_call(session, index)
+    elif "/" in model:
+        return await make_fixie_api_call(session, index)
     else:
         raise ValueError(f"Unknown model: {model}")
 
@@ -155,23 +204,40 @@ async def async_main():
         while tasks and not chosen:
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             task = done.pop()
-            results.append(task.result())
-            if task.result().response.ok:
+            result = task.result()
+            results.append(result)
+            if result.response.ok:
                 chosen = task.result()
             else:
-                tasks.remove(task)
+                status = result.response.status
+                text = await result.response.text()
+                text = text[:80] + "..." if len(text) > 80 else text
+                print(f"API Call {result.index} failed, status={status} text={text}")
+            tasks.remove(task)
+
+        # Bail out if no tasks succeed
+        if not chosen:
+            print("No successful API calls")
+            exit(1)
         print(f"Chosen API Call: {chosen.index} ({chosen.latency:.2f}s)")
 
         # Stream out the tokens
+        first_token_time = None
+        num_tokens = 0
         async for chunk in chosen.chunk_gen:
+            num_tokens += 1
+            if not first_token_time:
+                first_token_time = time.time()
             print(chunk, end="", flush=True)
+        end_time = time.time()
         print("\n")
 
         # Wait for the rest of the tasks to complete and clean up
-        done = await asyncio.wait(tasks)
-        results += [task.result() for task in done[0]]
-        for result in results:
-            await result.response.release()
+        if tasks:
+            done = await asyncio.wait(tasks)
+            results += [task.result() for task in done[0]]
+            for result in results:
+                await result.response.release()
 
     # Print out each result, sorted by index
     results.sort(key=lambda x: x.index)
@@ -195,6 +261,11 @@ async def async_main():
     med_index2 = len(results) // 2
     median_latency = (results[med_index1].latency + results[med_index2].latency) / 2
     print(f"Median response time: {median_latency:.2f} seconds")
+    print(f"Time to first token: {first_token_time - chosen.start_time:.2f} seconds")
+    print(
+        f"Tokens: {num_tokens} ({(num_tokens - 1) / (end_time - first_token_time):.0f} tokens/sec)"
+    )
+    print(f"Total time: {end_time - chosen.start_time:.2f} seconds")
 
 
 asyncio.run(async_main())
