@@ -1,10 +1,11 @@
-import asyncio
 import aiohttp
-import json
-import time
 import argparse
-import os
+import asyncio
 import dataclasses
+import json
+import os
+import time
+import urllib
 from typing import Generator
 
 DEFAULT_PROMPT = "Say hello."
@@ -31,6 +32,13 @@ parser.add_argument(
     help="Max tokens for the response",
 )
 parser.add_argument(
+    "--base-url",
+    "-b",
+    type=str,
+    default=None,
+    help="Base URL for the LLM API endpoint",
+)
+parser.add_argument(
     "--num-requests",
     "-n",
     type=int,
@@ -55,15 +63,24 @@ async def make_openai_chunk_gen(response) -> Generator[str, None, None]:
             content = line[5:].strip()
             if content != "[DONE]":
                 chunk = json.loads(content)
-                yield chunk["choices"][0]["delta"].get("content", "")
+                if chunk["choices"]:
+                    yield chunk["choices"][0]["delta"].get("content", "")
 
 
 async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> ApiResult:
-    url = "https://api.openai.com/v1/chat/completions"
+    url = args.base_url or "https://api.openai.com/v1"
+    use_azure = urllib.parse.urlparse(url).hostname.endswith(".azure.com")
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}",
     }
+    if use_azure:
+        headers["Api-Key"] = os.environ["AZURE_OPENAI_API_KEY"]
+        url += f"/openai/deployments/{args.model.replace('.', '')}"
+    else:
+        headers["Authorization"] = f"Bearer {os.environ['OPENAI_API_KEY']}"
+    url += "/chat/completions"
+    if use_azure:
+        url += "?api-version=2023-07-01-preview"
     data = json.dumps(
         {
             "model": args.model,
