@@ -1,4 +1,3 @@
-import aiohttp
 import argparse
 import asyncio
 import dataclasses
@@ -7,6 +6,8 @@ import os
 import time
 import urllib
 from typing import Generator
+
+import aiohttp
 
 DEFAULT_PROMPT = "Say hello."
 DEFAULT_MODEL = "gpt-3.5-turbo"

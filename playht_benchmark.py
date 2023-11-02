@@ -1,12 +1,13 @@
 import argparse
+import asyncio
+import dataclasses
+import logging
 import os
 import subprocess
-import aiohttp
-import asyncio
 import time
-import logging
-import dataclasses
 from typing import Optional
+
+import aiohttp
 from pyht import client
 from pyht.protos import api_pb2
 
