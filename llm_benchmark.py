@@ -26,8 +26,14 @@ parser.add_argument(
     "--model", "-m", type=str, default=DEFAULT_MODEL, help="Model to benchmark"
 )
 parser.add_argument(
-    "--max-tokens",
+    "--temperature",
     "-t",
+    type=float,
+    default=0.0,
+    help="Temperature for the response",
+)
+parser.add_argument(
+    "--max-tokens",
     type=int,
     default=DEFAULT_MAX_TOKENS,
     help="Max tokens for the response",
@@ -51,6 +57,20 @@ parser.add_argument(
     type=int,
     default=DEFAULT_NUM_REQUESTS,
     help="Number of requests to make",
+)
+parser.add_argument(
+    "--print",
+    "-p",
+    action="store_true",
+    dest="print",
+    help="Print the response",
+)
+parser.add_argument(
+    "--verbose",
+    "-v",
+    action="store_true",
+    dest="verbose",
+    help="Print verbose output",
 )
 args = parser.parse_args()
 
@@ -127,8 +147,9 @@ async def openai_chat(context: ApiContext) -> ApiResult:
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": context.prompt},
         ],
-        "stream": True,
         "max_tokens": args.max_tokens,
+        "temperature": args.temperature,
+        "stream": True,
     }
     return await post(context, url, headers, data, make_openai_chunk_gen)
 
@@ -162,6 +183,7 @@ async def anthropic_chat(context: ApiContext) -> ApiResult:
         "model": context.model,
         "prompt": f"\n\nHuman: {context.prompt}\n\nAssistant:",
         "max_tokens_to_sample": args.max_tokens,
+        "temperature": args.temperature,
         "stream": True,
     }
     return await post(context, url, headers, data, make_anthropic_chunk_gen)
@@ -238,7 +260,8 @@ async def async_main():
     async with aiohttp.ClientSession() as session:
         if args.warmup:
             # Do a warmup call to make sure the connection is ready
-            print("Making a warmup API call...")
+            if args.verbose:
+                print("Making a warmup API call...")
             await make_api_call(session, -1, args.model, "")
 
         print(f"Racing {args.num_requests} API calls to {args.model}...")
@@ -278,9 +301,11 @@ async def async_main():
                 num_tokens += 1
                 if not first_token_time:
                     first_token_time = time.time()
-                print(chunk, end="", flush=True)
+                if args.print:
+                    print(chunk, end="", flush=True)
             end_time = time.time()
-            print("\n")
+            if args.print:
+                print("\n")
 
         # Wait for the rest of the tasks to complete and clean up
         if tasks:
@@ -292,19 +317,21 @@ async def async_main():
     # Print out each result, sorted by index
     results.sort(key=lambda x: x.index)
     task1 = results[0]
-    for r in results:
-        if r.response.ok:
-            print(
-                f"API Call {r.index} Initial Response Latency: {r.latency:.2f} seconds"
-            )
-        else:
-            print(
-                f"API Call {r.index} Result: {r.response.status} in {r.latency:.2f} seconds"
-            )
+    if args.verbose:
+        for r in results:
+            if r.response.ok:
+                print(
+                    f"API Call {r.index} Initial Response Latency: {r.latency:.2f} seconds"
+                )
+            else:
+                print(
+                    f"API Call {r.index} Result: {r.response.status} in {r.latency:.2f} seconds"
+                )
+        print("")
 
     # Print a timing summary
     latency_saved = task1.latency - chosen.latency
-    print(f"\nLatency saved: {latency_saved:.2f} seconds")
+    print(f"Latency saved: {latency_saved:.2f} seconds")
     print(f"Optimized response time: {chosen.latency:.2f} seconds")
     results.sort(key=lambda x: x.latency)
     med_index1 = (len(results) - 1) // 2
