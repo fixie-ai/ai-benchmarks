@@ -40,6 +40,12 @@ parser.add_argument(
     help="Base URL for the LLM API endpoint",
 )
 parser.add_argument(
+    "--no-warmup",
+    action="store_false",
+    dest="warmup",
+    help="Don't do a warmup call to the API",
+)
+parser.add_argument(
     "--num-requests",
     "-n",
     type=int,
@@ -47,6 +53,14 @@ parser.add_argument(
     help="Number of requests to make",
 )
 args = parser.parse_args()
+
+
+@dataclasses.dataclass
+class ApiContext:
+    session: aiohttp.ClientSession
+    index: int
+    model: str
+    prompt: str
 
 
 @dataclasses.dataclass
@@ -66,17 +80,16 @@ class ApiResult:
 
 
 async def post(
-    session: aiohttp.ClientSession,
-    index: int,
+    context: ApiContext,
     url: str,
     headers: dict,
     data: dict,
     make_chunk_gen: callable(aiohttp.ClientResponse) = None,
 ):
     start_time = time.time()
-    response = await session.post(url, headers=headers, data=json.dumps(data))
+    response = await context.session.post(url, headers=headers, data=json.dumps(data))
     chunk_gen = make_chunk_gen(response) if make_chunk_gen else None
-    return ApiResult(index, start_time, response, chunk_gen)
+    return ApiResult(context.index, start_time, response, chunk_gen)
 
 
 async def make_openai_chunk_gen(response) -> Generator[str, None, None]:
@@ -91,7 +104,7 @@ async def make_openai_chunk_gen(response) -> Generator[str, None, None]:
                 yield chunk["choices"][0]["delta"].get("content", "")
 
 
-def make_openai_url_and_headers(path: str):
+def make_openai_url_and_headers(model: str, path: str):
     url = args.base_url or "https://api.openai.com/v1"
     use_azure = urllib.parse.urlparse(url).hostname.endswith(".azure.com")
     headers = {
@@ -99,34 +112,34 @@ def make_openai_url_and_headers(path: str):
     }
     if use_azure:
         headers["Api-Key"] = os.environ["AZURE_OPENAI_API_KEY"]
-        url += f"/openai/deployments/{args.model.replace('.', '')}{path}?api-version=2023-07-01-preview"
+        url += f"/openai/deployments/{model.replace('.', '')}{path}?api-version=2023-07-01-preview"
     else:
         headers["Authorization"] = f"Bearer {os.environ['OPENAI_API_KEY']}"
         url += path
     return url, headers
 
 
-async def openai_chat(session: aiohttp.ClientSession, index: int) -> ApiResult:
-    url, headers = make_openai_url_and_headers("/chat/completions")
+async def openai_chat(context: ApiContext) -> ApiResult:
+    url, headers = make_openai_url_and_headers(context.model, "/chat/completions")
     data = {
-        "model": args.model,
+        "model": context.model,
         "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": args.prompt},
+            {"role": "user", "content": context.prompt},
         ],
         "stream": True,
         "max_tokens": args.max_tokens,
     }
-    return await post(session, index, url, headers, data, make_openai_chunk_gen)
+    return await post(context, url, headers, data, make_openai_chunk_gen)
 
 
-async def openai_embed(session: aiohttp.ClientSession, index: int) -> ApiResult:
-    url, headers = make_openai_url_and_headers("/embeddings")
+async def openai_embed(context: ApiContext) -> ApiResult:
+    url, headers = make_openai_url_and_headers(context.model, "/embeddings")
     data = {
-        "model": args.model,
-        "input": args.prompt,
+        "model": context.model,
+        "input": context.prompt,
     }
-    return await post(session, index, url, headers, data)
+    return await post(context, url, headers, data)
 
 
 async def make_anthropic_chunk_gen(response) -> Generator[str, None, None]:
@@ -138,7 +151,7 @@ async def make_anthropic_chunk_gen(response) -> Generator[str, None, None]:
             yield chunk.get("completion", "")
 
 
-async def anthropic_chat(session: aiohttp.ClientSession, index: int) -> ApiResult:
+async def anthropic_chat(context: ApiContext) -> ApiResult:
     url = "https://api.anthropic.com/v1/complete"
     headers = {
         "content-type": "application/json",
@@ -146,22 +159,26 @@ async def anthropic_chat(session: aiohttp.ClientSession, index: int) -> ApiResul
         "anthropic-version": "2023-06-01",
     }
     data = {
-        "model": args.model,
-        "prompt": f"\n\nHuman: {args.prompt}\n\nAssistant:",
+        "model": context.model,
+        "prompt": f"\n\nHuman: {context.prompt}\n\nAssistant:",
         "max_tokens_to_sample": args.max_tokens,
         "stream": True,
     }
-    return await post(session, index, url, headers, data, make_anthropic_chunk_gen)
+    return await post(context, url, headers, data, make_anthropic_chunk_gen)
 
 
-async def cohere_embed(session: aiohttp.ClientSession, index: int) -> ApiResult:
+async def cohere_embed(context: ApiContext) -> ApiResult:
     url = "https://api.cohere.ai/v1/embed"
     headers = {
         "content-type": "application/json",
         "authorization": f"Bearer {os.environ['COHERE_API_KEY']}",
     }
-    data = {"model": args.model, "texts": [args.prompt], "input_type": "search_query"}
-    return await post(session, index, url, headers, data)
+    data = {
+        "model": context.model,
+        "texts": [context.prompt],
+        "input_type": "search_query",
+    }
+    return await post(context, url, headers, data)
 
 
 async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
@@ -189,38 +206,44 @@ async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
                 print(f"Warning: got unexpected text: '{new_text}' vs '{text}'")
 
 
-async def fixie_chat(session: aiohttp.ClientSession, index: int) -> ApiResult:
-    url = f"https://api.fixie.ai/api/v1/agents/{args.model}/conversations"
+async def fixie_chat(context: ApiContext) -> ApiResult:
+    url = f"https://api.fixie.ai/api/v1/agents/{context.model}/conversations"
     headers = {
         "content-type": "application/json",
         "authorization": f"Bearer {os.environ['FIXIE_API_KEY']}",
     }
-    data = {"message": args.prompt, "runtimeParameters": {}}
-    return await post(session, index, url, headers, data, make_fixie_chunk_gen)
+    data = {"message": context.prompt, "runtimeParameters": {}}
+    return await post(context, url, headers, data, make_fixie_chunk_gen)
 
 
 async def make_api_call(
-    session: aiohttp.ClientSession, index: int, model: str
+    session: aiohttp.ClientSession, index: int, model: str, prompt: str
 ) -> ApiResult:
+    context = ApiContext(session, index, model, prompt)
     if model.startswith("gpt-") or model.startswith("ft:gpt-"):
-        return await openai_chat(session, index)
+        return await openai_chat(context)
     elif model.startswith("claude-"):
-        return await anthropic_chat(session, index)
+        return await anthropic_chat(context)
     elif model.startswith("text-embedding-ada-"):
-        return await openai_embed(session, index)
+        return await openai_embed(context)
     elif model.startswith("embed-"):
-        return await cohere_embed(session, index)
+        return await cohere_embed(context)
     elif "/" in model:
-        return await fixie_chat(session, index)
+        return await fixie_chat(context)
     else:
         raise ValueError(f"Unknown model: {model}")
 
 
 async def async_main():
-    print(f"Racing {args.num_requests} API calls to {args.model}...")
     async with aiohttp.ClientSession() as session:
+        if args.warmup:
+            # Do a warmup call to make sure the connection is ready
+            print("Making a warmup API call...")
+            await make_api_call(session, -1, args.model, "")
+
+        print(f"Racing {args.num_requests} API calls to {args.model}...")
         tasks = [
-            asyncio.create_task(make_api_call(session, i, args.model))
+            asyncio.create_task(make_api_call(session, i, args.model, args.prompt))
             for i in range(args.num_requests)
         ]
         results = []
