@@ -3,8 +3,8 @@
 This repo contains a handful of utilities for benchmarking the response latency of popular AI services, including:
 
 Large Language Models (LLMs):
-- OpenAI
-- Anthropic
+- OpenAI (chat and embedding models)
+- Anthropic (chat models)
 
 Text-to-Speech Models (TTS):
 - ElevenLabs
