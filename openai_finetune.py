@@ -1,7 +1,7 @@
-import openai
 import os
 import time
 
+import openai
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 training_file = "/Users/juberti/Downloads/pirate_tune.jsonl"

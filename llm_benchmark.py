@@ -1,4 +1,3 @@
-import aiohttp
 import argparse
 import asyncio
 import dataclasses
@@ -7,6 +6,8 @@ import os
 import time
 import urllib
 from typing import Generator
+
+import aiohttp
 
 DEFAULT_PROMPT = "Say hello."
 DEFAULT_MODEL = "gpt-3.5-turbo"
@@ -153,6 +154,16 @@ async def anthropic_chat(session: aiohttp.ClientSession, index: int) -> ApiResul
     return await post(session, index, url, headers, data, make_anthropic_chunk_gen)
 
 
+async def cohere_embed(session: aiohttp.ClientSession, index: int) -> ApiResult:
+    url = "https://api.cohere.ai/v1/embed"
+    headers = {
+        "content-type": "application/json",
+        "authorization": f"Bearer {os.environ['COHERE_API_KEY']}",
+    }
+    data = {"model": args.model, "texts": [args.prompt], "input_type": "search_query"}
+    return await post(session, index, url, headers, data)
+
+
 async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
     text = ""
     async for line in response.content:
@@ -197,6 +208,8 @@ async def make_api_call(
         return await anthropic_chat(session, index)
     elif model.startswith("text-embedding-ada-"):
         return await openai_embed(session, index)
+    elif model.startswith("embed-"):
+        return await cohere_embed(session, index)
     elif "/" in model:
         return await fixie_chat(session, index)
     else:
