@@ -70,11 +70,12 @@ async def post(
     url: str,
     headers: dict,
     data: dict,
-    chunk_gen: callable(aiohttp.ClientResponse),
+    make_chunk_gen: callable(aiohttp.ClientResponse) = None,
 ):
     start_time = time.time()
     response = await session.post(url, headers=headers, data=json.dumps(data))
-    return ApiResult(index, start_time, response, chunk_gen(response))
+    chunk_gen = make_chunk_gen(response) if make_chunk_gen else None
+    return ApiResult(index, start_time, response, chunk_gen)
 
 
 async def make_openai_chunk_gen(response) -> Generator[str, None, None]:
@@ -89,7 +90,7 @@ async def make_openai_chunk_gen(response) -> Generator[str, None, None]:
                 yield chunk["choices"][0]["delta"].get("content", "")
 
 
-async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> ApiResult:
+def make_openai_url_and_headers(path: str):
     url = args.base_url or "https://api.openai.com/v1"
     use_azure = urllib.parse.urlparse(url).hostname.endswith(".azure.com")
     headers = {
@@ -97,12 +98,15 @@ async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> Ap
     }
     if use_azure:
         headers["Api-Key"] = os.environ["AZURE_OPENAI_API_KEY"]
-        url += f"/openai/deployments/{args.model.replace('.', '')}"
+        url += f"/openai/deployments/{args.model.replace('.', '')}{path}?api-version=2023-07-01-preview"
     else:
         headers["Authorization"] = f"Bearer {os.environ['OPENAI_API_KEY']}"
-    url += "/chat/completions"
-    if use_azure:
-        url += "?api-version=2023-07-01-preview"
+        url += path
+    return url, headers
+
+
+async def openai_chat(session: aiohttp.ClientSession, index: int) -> ApiResult:
+    url, headers = make_openai_url_and_headers("/chat/completions")
     data = {
         "model": args.model,
         "messages": [
@@ -115,6 +119,15 @@ async def make_openai_api_call(session: aiohttp.ClientSession, index: int) -> Ap
     return await post(session, index, url, headers, data, make_openai_chunk_gen)
 
 
+async def openai_embed(session: aiohttp.ClientSession, index: int) -> ApiResult:
+    url, headers = make_openai_url_and_headers("/embeddings")
+    data = {
+        "model": args.model,
+        "input": args.prompt,
+    }
+    return await post(session, index, url, headers, data)
+
+
 async def make_anthropic_chunk_gen(response) -> Generator[str, None, None]:
     async for line in response.content:
         line = line.decode("utf-8").strip()
@@ -124,9 +137,7 @@ async def make_anthropic_chunk_gen(response) -> Generator[str, None, None]:
             yield chunk.get("completion", "")
 
 
-async def make_anthropic_api_call(
-    session: aiohttp.ClientSession, index: int
-) -> ApiResult:
+async def anthropic_chat(session: aiohttp.ClientSession, index: int) -> ApiResult:
     url = "https://api.anthropic.com/v1/complete"
     headers = {
         "content-type": "application/json",
@@ -167,7 +178,7 @@ async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
                 print(f"Warning: got unexpected text: '{new_text}' vs '{text}'")
 
 
-async def make_fixie_api_call(session: aiohttp.ClientSession, index: int) -> ApiResult:
+async def fixie_chat(session: aiohttp.ClientSession, index: int) -> ApiResult:
     url = f"https://api.fixie.ai/api/v1/agents/{args.model}/conversations"
     headers = {
         "content-type": "application/json",
@@ -181,11 +192,13 @@ async def make_api_call(
     session: aiohttp.ClientSession, index: int, model: str
 ) -> ApiResult:
     if model.startswith("gpt-") or model.startswith("ft:gpt-"):
-        return await make_openai_api_call(session, index)
+        return await openai_chat(session, index)
     elif model.startswith("claude-"):
-        return await make_anthropic_api_call(session, index)
+        return await anthropic_chat(session, index)
+    elif model.startswith("text-embedding-ada-"):
+        return await openai_embed(session, index)
     elif "/" in model:
-        return await make_fixie_api_call(session, index)
+        return await fixie_chat(session, index)
     else:
         raise ValueError(f"Unknown model: {model}")
 
@@ -221,16 +234,17 @@ async def async_main():
             exit(1)
         print(f"Chosen API Call: {chosen.index} ({chosen.latency:.2f}s)")
 
-        # Stream out the tokens
+        # Stream out the tokens, if we're doing completion
         first_token_time = None
         num_tokens = 0
-        async for chunk in chosen.chunk_gen:
-            num_tokens += 1
-            if not first_token_time:
-                first_token_time = time.time()
-            print(chunk, end="", flush=True)
-        end_time = time.time()
-        print("\n")
+        if chosen.chunk_gen:
+            async for chunk in chosen.chunk_gen:
+                num_tokens += 1
+                if not first_token_time:
+                    first_token_time = time.time()
+                print(chunk, end="", flush=True)
+            end_time = time.time()
+            print("\n")
 
         # Wait for the rest of the tasks to complete and clean up
         if tasks:
@@ -261,11 +275,14 @@ async def async_main():
     med_index2 = len(results) // 2
     median_latency = (results[med_index1].latency + results[med_index2].latency) / 2
     print(f"Median response time: {median_latency:.2f} seconds")
-    print(f"Time to first token: {first_token_time - chosen.start_time:.2f} seconds")
-    print(
-        f"Tokens: {num_tokens} ({(num_tokens - 1) / (end_time - first_token_time):.0f} tokens/sec)"
-    )
-    print(f"Total time: {end_time - chosen.start_time:.2f} seconds")
+    if num_tokens > 0:
+        print(
+            f"Time to first token: {first_token_time - chosen.start_time:.2f} seconds"
+        )
+        print(
+            f"Tokens: {num_tokens} ({(num_tokens - 1) / (end_time - first_token_time):.0f} tokens/sec)"
+        )
+        print(f"Total time: {end_time - chosen.start_time:.2f} seconds")
 
 
 asyncio.run(async_main())
