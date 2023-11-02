@@ -50,8 +50,16 @@ args = parser.parse_args()
 
 @dataclasses.dataclass
 class ApiResult:
+    def __init__(self, index, start_time, response, chunk_gen):
+        self.index = index
+        self.start_time = start_time
+        self.latency = time.time() - start_time
+        self.response = response
+        self.chunk_gen = chunk_gen
+
     index: int
-    latency: float
+    start_time: int
+    latency: float  # HTTP response time
     response: aiohttp.ClientResponse
     chunk_gen: Generator[str, None, None]
 
@@ -75,10 +83,11 @@ async def make_openai_chunk_gen(response) -> Generator[str, None, None]:
         line = line.decode("utf-8").strip()
         if line.startswith("data:"):
             content = line[5:].strip()
-            if content != "[DONE]":
-                chunk = json.loads(content)
-                if chunk["choices"]:
-                    yield chunk["choices"][0]["delta"].get("content", "")
+            if content == "[DONE]":
+                break
+            chunk = json.loads(content)
+            if chunk["choices"]:
+                yield chunk["choices"][0]["delta"].get("content", "")
 
 
 def make_openai_url_and_headers(path: str):
@@ -208,11 +217,21 @@ async def async_main():
         while tasks and not chosen:
             done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             task = done.pop()
-            results.append(task.result())
-            if task.result().response.ok:
+            result = task.result()
+            results.append(result)
+            if result.response.ok:
                 chosen = task.result()
             else:
-                tasks.remove(task)
+                status = result.response.status
+                text = await result.response.text()
+                text = text[:80] + "..." if len(text) > 80 else text
+                print(f"API Call {result.index} failed, status={status} text={text}")
+            tasks.remove(task)
+
+        # Bail out if no tasks succeed
+        if not chosen:
+            print("No successful API calls")
+            exit(1)
         print(f"Chosen API Call: {chosen.index} ({chosen.latency:.2f}s)")
 
         # Stream out the tokens, if we're doing completion
@@ -228,10 +247,11 @@ async def async_main():
             print("\n")
 
         # Wait for the rest of the tasks to complete and clean up
-        done = await asyncio.wait(tasks)
-        results += [task.result() for task in done[0]]
-        for result in results:
-            await result.response.release()
+        if tasks:
+            done = await asyncio.wait(tasks)
+            results += [task.result() for task in done[0]]
+            for result in results:
+                await result.response.release()
 
     # Print out each result, sorted by index
     results.sort(key=lambda x: x.index)
