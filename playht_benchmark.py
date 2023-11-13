@@ -11,10 +11,6 @@ import aiohttp
 from pyht import client
 from pyht.protos import api_pb2
 
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s] %(message)s", level=logging.INFO
-)
-
 PLAYHT_API_KEY = os.environ.get("PLAYHT_API_KEY")
 PLAYHT_USER_ID = os.environ.get("PLAYHT_USER_ID")
 
@@ -254,7 +250,7 @@ def generate_grpc(latency_data: LatencyData):
     logging.info("Sending GRPC request...")
     latency_data.start()
     result = grpc_client.tts(args.text, options)
-    header = next(result)
+    _ = next(result)
     latency_data.set_headers_received()
     logging.info(f"Latency: {latency_data.headers_received*1000:.2f} ms")
     logging.info("-" * 40)
