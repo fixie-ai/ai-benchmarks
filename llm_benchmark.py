@@ -119,12 +119,14 @@ async def post(
     return ApiResult(context.index, start_time, response, chunk_gen)
 
 
-def make_headers(auth_token: Optional[str] = None):
+def make_headers(auth_token: Optional[str] = None, x_api_key: Optional[str] = None):
     headers = {
         "content-type": "application/json",
     }
     if auth_token:
         headers["authorization"] = f"Bearer {auth_token}"
+    if x_api_key:
+        headers["x-api-key"] = x_api_key
     return headers
 
 
@@ -174,17 +176,18 @@ async def make_sse_chunk_gen(response) -> Generator[Dict, None, None]:
             yield json.loads(content)
 
 
-async def openai_chat(context: ApiContext) -> ApiResult:
-    async def chunk_gen(response) -> Generator[str, None, None]:
-        async for chunk in make_sse_chunk_gen(response):
-            if chunk["choices"]:
-                delta_content = chunk["choices"][0]["delta"].get("content")
-                if delta_content:
-                    yield delta_content
+async def openai_chunk_gen(response) -> Generator[str, None, None]:
+    async for chunk in make_sse_chunk_gen(response):
+        if chunk["choices"]:
+            delta_content = chunk["choices"][0]["delta"].get("content")
+            if delta_content:
+                yield delta_content
 
+
+async def openai_chat(context: ApiContext) -> ApiResult:
     url, headers = make_openai_url_and_headers(context.model, "/chat/completions")
     data = make_openai_chat_body(messages=make_messages(context.prompt))
-    return await post(context, url, headers, data, chunk_gen)
+    return await post(context, url, headers, data, openai_chunk_gen)
 
 
 async def openai_embed(context: ApiContext) -> ApiResult:
@@ -227,6 +230,13 @@ async def cloudflare_chat(context: ApiContext) -> ApiResult:
     headers = make_headers(auth_token=os.environ["CF_API_KEY"])
     data = make_openai_chat_body(messages=make_messages(context.prompt))
     return await post(context, url, headers, data, chunk_gen)
+
+
+async def neets_chat(context: ApiContext) -> ApiResult:
+    url = "https://api.neets.ai/v1/chat/completions"
+    headers = make_headers(x_api_key=os.environ["NEETS_API_KEY"])
+    data = make_openai_chat_body(messages=make_messages(context.prompt))
+    return await post(context, url, headers, data, openai_chunk_gen)
 
 
 async def together_chat(context: ApiContext) -> ApiResult:
@@ -293,6 +303,8 @@ async def make_api_call(
         return await anthropic_chat(context)
     elif model.startswith("@cf/"):
         return await cloudflare_chat(context)
+    elif model.startswith("Neets"):
+        return await neets_chat(context)
     elif model.startswith("togethercomputer/"):
         return await together_chat(context)
     elif model.startswith("text-embedding-ada-"):
