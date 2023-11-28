@@ -178,7 +178,9 @@ async def openai_chat(context: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> Generator[str, None, None]:
         async for chunk in make_sse_chunk_gen(response):
             if chunk["choices"]:
-                yield chunk["choices"][0]["delta"].get("content", "")
+                delta_content = chunk["choices"][0]["delta"].get("content")
+                if delta_content:
+                    yield delta_content
 
     url, headers = make_openai_url_and_headers(context.model, "/chat/completions")
     data = make_openai_chat_body(messages=make_messages(context.prompt))
