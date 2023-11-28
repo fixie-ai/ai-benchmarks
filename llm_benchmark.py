@@ -5,7 +5,7 @@ import json
 import os
 import time
 import urllib
-from typing import Generator
+from typing import Dict, Generator, List, Optional
 
 import aiohttp
 
@@ -119,6 +119,15 @@ async def post(
     return ApiResult(context.index, start_time, response, chunk_gen)
 
 
+def make_headers(auth_token: Optional[str] = None):
+    headers = {
+        "content-type": "application/json",
+    }
+    if auth_token:
+        headers["authorization"] = f"Bearer {auth_token}"
+    return headers
+
+
 def make_openai_url_and_headers(model: str, path: str):
     url = args.base_url or "https://api.openai.com/v1"
     use_azure = urllib.parse.urlparse(url).hostname.endswith(".azure.com")
@@ -129,35 +138,50 @@ def make_openai_url_and_headers(model: str, path: str):
         headers["Api-Key"] = os.environ["AZURE_OPENAI_API_KEY"]
         url += f"/openai/deployments/{model.replace('.', '')}{path}?api-version=2023-07-01-preview"
     else:
-        api_key_name = args.api_key or "OPENAI_API_KEY"
-        headers["Authorization"] = f"Bearer {os.environ[api_key_name]}"
+        api_key = args.api_key or os.environ["OPENAI_API_KEY"]
+        headers["Authorization"] = f"Bearer {api_key}"
         url += path
     return url, headers
 
 
-async def openai_chat(context: ApiContext) -> ApiResult:
-    async def chunk_gen(response) -> Generator[str, None, None]:
-        async for line in response.content:
-            line = line.decode("utf-8").strip()
-            if line.startswith("data:"):
-                content = line[5:].strip()
-                if content == "[DONE]":
-                    break
-                chunk = json.loads(content)
-                if chunk["choices"]:
-                    yield chunk["choices"][0]["delta"].get("content", "")
+def make_messages(prompt: str):
+    return [{"role": "user", "content": prompt}]
 
-    url, headers = make_openai_url_and_headers(context.model, "/chat/completions")
-    data = {
-        "model": context.model,
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": context.prompt},
-        ],
+
+def make_openai_chat_body(
+    prompt: Optional[str] = None, messages: Optional[List[Dict]] = None
+):
+    body = {
+        "model": args.model,
         "max_tokens": args.max_tokens,
         "temperature": args.temperature,
         "stream": True,
     }
+    if prompt:
+        body["prompt"] = prompt
+    elif messages:
+        body["messages"] = messages
+    return body
+
+
+async def make_sse_chunk_gen(response) -> Generator[Dict, None, None]:
+    async for line in response.content:
+        line = line.decode("utf-8").strip()
+        if line.startswith("data:"):
+            content = line[5:].strip()
+            if content == "[DONE]":
+                break
+            yield json.loads(content)
+
+
+async def openai_chat(context: ApiContext) -> ApiResult:
+    async def chunk_gen(response) -> Generator[str, None, None]:
+        async for chunk in make_sse_chunk_gen(response):
+            if chunk["choices"]:
+                yield chunk["choices"][0]["delta"].get("content", "")
+
+    url, headers = make_openai_url_and_headers(context.model, "/chat/completions")
+    data = make_openai_chat_body(messages=make_messages(context.prompt))
     return await post(context, url, headers, data, chunk_gen)
 
 
@@ -172,12 +196,8 @@ async def openai_embed(context: ApiContext) -> ApiResult:
 
 async def anthropic_chat(context: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> Generator[str, None, None]:
-        async for line in response.content:
-            line = line.decode("utf-8").strip()
-            if line.startswith("data:"):
-                content = line[5:].strip()
-                chunk = json.loads(content)
-                yield chunk.get("completion", "")
+        async for chunk in make_sse_chunk_gen(response):
+            yield chunk.get("completion", "")
 
     url = "https://api.anthropic.com/v1/complete"
     headers = {
@@ -195,59 +215,32 @@ async def anthropic_chat(context: ApiContext) -> ApiResult:
     return await post(context, url, headers, data, chunk_gen)
 
 
-async def together_chat(context: ApiContext) -> ApiResult:
+async def cloudflare_chat(context: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> Generator[str, None, None]:
-        async for line in response.content:
-            line = line.decode("utf-8").strip()
-            if line.startswith("data:"):
-                content = line[5:].strip()
-                if content == "[DONE]":
-                    break
-                chunk = json.loads(content)
-                yield chunk["choices"][0].get("text", "")
+        async for chunk in make_sse_chunk_gen(response):
+            yield chunk["response"]
 
-    url = "https://api.together.xyz/inference"
-    headers = {
-        "content-type": "application/json",
-        "authorization": f"Bearer {os.environ['TOGETHER_API_KEY']}",
-    }
-    data = {
-        "model": context.model,
-        "prompt": f"Q: {context.prompt}\nA:",
-        "max_tokens": args.max_tokens,
-        "temperature": args.temperature,
-        "stream": True,
-    }
+    account_id = os.environ["CF_ACCOUNT_ID"]
+    url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{args.model}"
+    headers = make_headers(auth_token=os.environ["CF_API_KEY"])
+    data = make_openai_chat_body(messages=make_messages(context.prompt))
     return await post(context, url, headers, data, chunk_gen)
 
 
-"""
-async def llama_chat(context: ApiContext) -> ApiResult:
-    url = "https://llama-2-70b-chat-demo-sbiye0vsqfyy.octoai.run/v1/chat/completions"
-    headers = {
-        "content-type": "application/json",
-        "authorization": f"Bearer {os.environ['LLAMA2_API_KEY']}",
-    }
-    data = {
-        "model": context.model,
-        "messages": [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": context.prompt},
-        ],
-        "max_tokens": args.max_tokens,
-        "temperature": args.temperature,
-        "stream": True,
-    }
-    return await post(context, url, headers, data, make_openai_chunk_gen)
-"""
+async def together_chat(context: ApiContext) -> ApiResult:
+    async def chunk_gen(response) -> Generator[str, None, None]:
+        async for chunk in make_sse_chunk_gen(response):
+            yield chunk["choices"][0].get("text", "")
+
+    url = "https://api.together.xyz/inference"
+    headers = make_headers(auth_token=os.environ["TOGETHER_API_KEY"])
+    data = make_openai_chat_body(prompt=context.prompt)
+    return await post(context, url, headers, data, chunk_gen)
 
 
 async def cohere_embed(context: ApiContext) -> ApiResult:
     url = "https://api.cohere.ai/v1/embed"
-    headers = {
-        "content-type": "application/json",
-        "authorization": f"Bearer {os.environ['COHERE_API_KEY']}",
-    }
+    headers = make_headers(auth_token=os.environ["COHERE_API_KEY"])
     data = {
         "model": context.model,
         "texts": [context.prompt],
@@ -283,10 +276,7 @@ async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
 
 async def fixie_chat(context: ApiContext) -> ApiResult:
     url = f"https://api.fixie.ai/api/v1/agents/{context.model}/conversations"
-    headers = {
-        "content-type": "application/json",
-        "authorization": f"Bearer {os.environ['FIXIE_API_KEY']}",
-    }
+    headers = make_headers(auth_token=os.environ["FIXIE_API_KEY"])
     data = {"message": context.prompt, "runtimeParameters": {}}
     return await post(context, url, headers, data, make_fixie_chunk_gen)
 
@@ -295,10 +285,12 @@ async def make_api_call(
     session: aiohttp.ClientSession, index: int, model: str, prompt: str
 ) -> ApiResult:
     context = ApiContext(session, index, model, prompt)
-    if model.startswith("gpt-") or model.startswith("ft:gpt-"):
+    if args.base_url or model.startswith("gpt-") or model.startswith("ft:gpt-"):
         return await openai_chat(context)
     elif model.startswith("claude-"):
         return await anthropic_chat(context)
+    elif model.startswith("@cf/"):
+        return await cloudflare_chat(context)
     elif model.startswith("togethercomputer/"):
         return await together_chat(context)
     elif model.startswith("text-embedding-ada-"):
