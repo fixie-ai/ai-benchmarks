@@ -325,7 +325,8 @@ async def async_main():
                 print("Making a warmup API call...")
             await make_api_call(session, -1, args.model, "")
 
-        print(f"Racing {args.num_requests} API calls to {args.model}...")
+        fq_model = args.model if not args.base_url else f"{args.base_url}/{args.model}"
+        print(f"Racing {args.num_requests} API calls to {fq_model}...")
         tasks = [
             asyncio.create_task(make_api_call(session, i, args.model, args.prompt))
             for i in range(args.num_requests)
