@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import argparse
 import asyncio
 import dataclasses
@@ -119,6 +120,14 @@ async def post(
     return ApiResult(context.index, start_time, response, chunk_gen)
 
 
+def get_api_key(env_var: str) -> str:
+    if args.api_key:
+        return args.api_key
+    if env_var in os.environ:
+        return os.environ[env_var]
+    raise ValueError(f"Missing API key: {env_var}")
+
+
 def make_headers(auth_token: Optional[str] = None, x_api_key: Optional[str] = None):
     headers = {
         "content-type": "application/json",
@@ -137,10 +146,11 @@ def make_openai_url_and_headers(model: str, path: str):
         "Content-Type": "application/json",
     }
     if use_azure:
-        headers["Api-Key"] = os.environ["AZURE_OPENAI_API_KEY"]
+        api_key = get_api_key("AZURE_OPENAI_API_KEY")
+        headers["Api-Key"] = api_key
         url += f"/openai/deployments/{model.replace('.', '')}{path}?api-version=2023-07-01-preview"
     else:
-        api_key = args.api_key or os.environ["OPENAI_API_KEY"]
+        api_key = get_api_key("OPENAI_API_KEY")
         headers["Authorization"] = f"Bearer {api_key}"
         url += path
     return url, headers
@@ -207,7 +217,7 @@ async def anthropic_chat(context: ApiContext) -> ApiResult:
     url = "https://api.anthropic.com/v1/complete"
     headers = {
         "content-type": "application/json",
-        "x-api-key": os.environ["ANTHROPIC_API_KEY"],
+        "x-api-key": get_api_key("ANTHROPIC_API_KEY"),
         "anthropic-version": "2023-06-01",
     }
     data = {
@@ -227,14 +237,14 @@ async def cloudflare_chat(context: ApiContext) -> ApiResult:
 
     account_id = os.environ["CF_ACCOUNT_ID"]
     url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{args.model}"
-    headers = make_headers(auth_token=os.environ["CF_API_KEY"])
+    headers = make_headers(auth_token=get_api_key("CF_API_KEY"))
     data = make_openai_chat_body(messages=make_messages(context.prompt))
     return await post(context, url, headers, data, chunk_gen)
 
 
 async def neets_chat(context: ApiContext) -> ApiResult:
     url = "https://api.neets.ai/v1/chat/completions"
-    headers = make_headers(x_api_key=os.environ["NEETS_API_KEY"])
+    headers = make_headers(x_api_key=get_api_key("NEETS_API_KEY"))
     data = make_openai_chat_body(messages=make_messages(context.prompt))
     return await post(context, url, headers, data, openai_chunk_gen)
 
@@ -245,14 +255,14 @@ async def together_chat(context: ApiContext) -> ApiResult:
             yield chunk["choices"][0].get("text", "")
 
     url = "https://api.together.xyz/inference"
-    headers = make_headers(auth_token=os.environ["TOGETHER_API_KEY"])
+    headers = make_headers(auth_token=get_api_key("TOGETHER_API_KEY"))
     data = make_openai_chat_body(prompt=context.prompt)
     return await post(context, url, headers, data, chunk_gen)
 
 
 async def cohere_embed(context: ApiContext) -> ApiResult:
     url = "https://api.cohere.ai/v1/embed"
-    headers = make_headers(auth_token=os.environ["COHERE_API_KEY"])
+    headers = make_headers(auth_token=get_api_key("COHERE_API_KEY"))
     data = {
         "model": context.model,
         "texts": [context.prompt],
@@ -288,7 +298,7 @@ async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
 
 async def fixie_chat(context: ApiContext) -> ApiResult:
     url = f"https://api.fixie.ai/api/v1/agents/{context.model}/conversations"
-    headers = make_headers(auth_token=os.environ["FIXIE_API_KEY"])
+    headers = make_headers(auth_token=get_api_key("FIXIE_API_KEY"))
     data = {"message": context.prompt, "runtimeParameters": {}}
     return await post(context, url, headers, data, make_fixie_chunk_gen)
 
