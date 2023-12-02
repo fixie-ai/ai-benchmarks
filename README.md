@@ -21,6 +21,7 @@ Text-to-Speech Models (TTS):
 - PlayHT
 
 ## Leaderboard
+Snapshot below, click it to jump to the latest spreadsheet.
 [![Screenshot 2023-12-01 at 5 02 18 PM](https://github.com/fixie-ai/ai-benchmarks/assets/1821693/61eebd97-e9ad-43be-837f-d0cf1f1aae69)](https://docs.google.com/spreadsheets/d/e/2PACX-1vTPttBIJ676Ke5eKXh8EoOe9XrMZ1kgVh-hvuO-LP41GTNIbsHwx1bcb_SsoB3BTDZLNeMspqLQMXSS/pubhtml?gid=0&single=true)
 
 
