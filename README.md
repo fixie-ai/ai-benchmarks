@@ -47,14 +47,18 @@ python llm_benchmark.py -m gpt-3.5-turbo "Write me a haiku."
 However, when invoking generic models like Llama2, you'll need to pass in the base_url and api_key via the -b and -k parameters, e.g., 
 
 ```
-python llm_benchmark.py -k $OCTOML_API_KEY -b https://text.octoai.run/v1 -m llama-2-70b-chat-fp16 "Write me a haiku."
+python llm_benchmark.py -k $OCTOML_API_KEY -b https://text.octoai.run/v1 \
+       -m llama-2-70b-chat-fp16 "Write me a haiku."
 ```
 
 Similarly, when invoking Azure OpenAI, you'll need to specify your Azure API key and the base URL of your Azure deployment, e.g., 
 
 ```
-python llm_benchmark.py -b https://fixie-westus.openai.azure.com -m gpt-4-1106-preview "Write me a haiku."
+python llm_benchmark.py -b https://fixie-westus.openai.azure.com \
+       -m gpt-4-1106-preview "Write me a haiku."
 ```
+
+See [this script](https://github.com/fixie-ai/ai-benchmarks/blob/main/llm_benchmark_suite.sh) for more examples of how to invoke various providers.
 
 #### Options
 
