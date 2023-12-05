@@ -4,6 +4,7 @@ python llm_benchmark.py --minimal -b https://fixie-westus.openai.azure.com -m gp
 python llm_benchmark.py --minimal -b https://fixie-westus.openai.azure.com -m gpt-3.5-turbo-1106 "$@"
 python llm_benchmark.py --minimal -m claude-2 "$@"
 python llm_benchmark.py --minimal -m claude-instant-1 "$@"
+python llm_benchmark.py --minimal -k $(gcloud auth print-access-token) -m chat-bison "$@"
 python llm_benchmark.py --minimal -m togethercomputer/llama-2-7b-chat "$@"
 python llm_benchmark.py --minimal -m togethercomputer/llama-2-70b-chat "$@"
 python llm_benchmark.py --minimal -m @cf/meta/llama-2-7b-chat-fp16 "$@"
