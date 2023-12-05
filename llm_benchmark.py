@@ -370,9 +370,7 @@ async def make_api_call(
     session: aiohttp.ClientSession, index: int, model: str, prompt: str
 ) -> ApiResult:
     context = ApiContext(session, index, model, prompt)
-    if args.base_url or model.startswith("gpt-") or model.startswith("ft:gpt-"):
-        return await openai_chat(context)
-    elif model.startswith("claude-"):
+    if model.startswith("claude-"):
         return await anthropic_chat(context)
     elif model.startswith("@cf/"):
         return await cloudflare_chat(context)
@@ -386,6 +384,9 @@ async def make_api_call(
         return await openai_embed(context)
     elif model.startswith("embed-"):
         return await cohere_embed(context)
+    # This catch-all needs to be at the end, since it triggers if args.base_url is set.
+    elif args.base_url or model.startswith("gpt-") or model.startswith("ft:gpt-"):
+        return await openai_chat(context)
     elif "/" in model:
         return await fixie_chat(context)
     else:
@@ -479,9 +480,10 @@ async def async_main():
     med_index1 = (len(results) - 1) // 2
     med_index2 = len(results) // 2
     median_latency = (results[med_index1].latency + results[med_index2].latency) / 2
-    ttft = first_token_time - chosen.start_time
-    tps = (num_tokens - 1) / (end_time - first_token_time)
-    total_time = end_time - chosen.start_time
+    if num_tokens > 0:
+        ttft = first_token_time - chosen.start_time
+        tps = (num_tokens - 1) / (end_time - first_token_time)
+        total_time = end_time - chosen.start_time
     if not args.minimal:
         print(f"Latency saved: {latency_saved:.2f} seconds")
         print(f"Optimized response time: {chosen.latency:.2f} seconds")
