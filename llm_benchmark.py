@@ -6,7 +6,7 @@ import json
 import os
 import time
 import urllib
-from typing import Dict, Generator, List, Optional
+from typing import Any, Dict, Generator, List, Optional
 
 import aiohttp
 
@@ -249,6 +249,62 @@ async def cloudflare_chat(context: ApiContext) -> ApiResult:
     return await post(context, url, headers, data, chunk_gen)
 
 
+async def google_chat(context: ApiContext) -> ApiResult:
+    async def make_json_chunk_gen(response) -> Generator[Any, None, None]:
+        """Hacky parser for the JSON streaming format used by Google Vertex AI."""
+        buf = ""
+        async for line in response.content:
+            # Eat the first array bracket, we'll do the same for the last one below.
+            line = line.decode("utf-8").strip()
+            if not buf and line.startswith("["):
+                line = line[1:]
+            # Split on comma-only lines, otherwise concatenate.
+            if line == ",":
+                yield json.loads(buf)
+                buf = ""
+            else:
+                buf += line
+        yield json.loads(buf[:-1])
+
+    async def chunk_gen(response) -> Generator[str, None, None]:
+        async for chunk in make_json_chunk_gen(response):
+            yield chunk["outputs"][0]["structVal"]["candidates"]["listVal"][0][
+                "structVal"
+            ]["content"]["stringVal"][0]
+
+    region = "us-west1"
+    project_id = os.environ["GCP_PROJECT"]
+    url = f"https://{region}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{region}/publishers/google/models/{args.model}:serverStreamingPredict"
+    headers = make_headers(auth_token=get_api_key("GOOGLE_VERTEXAI_API_KEY"))
+    data = {
+        "inputs": [
+            {
+                "struct_val": {
+                    "messages": {
+                        "list_val": [
+                            {
+                                "struct_val": {
+                                    "content": {
+                                        "string_val": context.prompt,
+                                    },
+                                    "author": {"string_val": "user"},
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
+        "parameters": {
+            "struct_val": {
+                "temperature": {"float_val": args.temperature},
+                "maxOutputTokens": {"int_val": args.max_tokens},
+            }
+        },
+    }
+    return await post(context, url, headers, data, chunk_gen)
+
+
 async def neets_chat(context: ApiContext) -> ApiResult:
     url = "https://api.neets.ai/v1/chat/completions"
     headers = make_headers(x_api_key=get_api_key("NEETS_API_KEY"))
@@ -320,6 +376,8 @@ async def make_api_call(
         return await anthropic_chat(context)
     elif model.startswith("@cf/"):
         return await cloudflare_chat(context)
+    elif model in ["chat-bison", "chat-unicorn"]:
+        return await google_chat(context)
     elif model.startswith("Neets"):
         return await neets_chat(context)
     elif model.startswith("togethercomputer/"):
