@@ -374,7 +374,7 @@ async def make_api_call(
         return await anthropic_chat(context)
     elif model.startswith("@cf/"):
         return await cloudflare_chat(context)
-    elif model in ["chat-bison", "chat-unicorn"]:
+    elif model.startswith("chat-bison") or model.startswith("chat-unicorn"):
         return await google_chat(context)
     elif model.startswith("Neets"):
         return await neets_chat(context)
