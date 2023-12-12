@@ -23,7 +23,8 @@ Text-to-Speech Models (TTS):
 
 ## Leaderboard
 Snapshot below, click it to jump to the latest spreadsheet.
-[![Screenshot 2023-12-11 at 4 14 19 PM](https://github.com/fixie-ai/ai-benchmarks/assets/1821693/61eebd97-e9ad-43be-837f-d0cf1f1aae69)](https://docs.google.com/spreadsheets/d/e/2PACX-1vTPttBIJ676Ke5eKXh8EoOe9XrMZ1kgVh-hvuO-LP41GTNIbsHwx1bcb_SsoB3BTDZLNeMspqLQMXSS/pubhtml?gid=0&single=true)
+[![Screenshot 2023-12-11 at 4 14 19 PM](https://github.com/fixie-ai/ai-benchmarks/assets/1821693/4613403d-a944-4dbf-9752-792453c9d13a)](https://docs.google.com/spreadsheets/d/e/2PACX-1vTPttBIJ676Ke5eKXh8EoOe9XrMZ1kgVh-hvuO-LP41GTNIbsHwx1bcb_SsoB3BTDZLNeMspqLQMXSS/pubhtml?gid=0&single=true)
+
 
 
 ## Initial setup
