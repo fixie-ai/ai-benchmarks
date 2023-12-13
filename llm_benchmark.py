@@ -249,23 +249,24 @@ async def cloudflare_chat(context: ApiContext) -> ApiResult:
     return await post(context, url, headers, data, chunk_gen)
 
 
-async def google_chat(context: ApiContext) -> ApiResult:
-    async def make_json_chunk_gen(response) -> Generator[Any, None, None]:
-        """Hacky parser for the JSON streaming format used by Google Vertex AI."""
-        buf = ""
-        async for line in response.content:
-            # Eat the first array bracket, we'll do the same for the last one below.
-            line = line.decode("utf-8").strip()
-            if not buf and line.startswith("["):
-                line = line[1:]
-            # Split on comma-only lines, otherwise concatenate.
-            if line == ",":
-                yield json.loads(buf)
-                buf = ""
-            else:
-                buf += line
-        yield json.loads(buf[:-1])
+async def make_json_chunk_gen(response) -> Generator[Any, None, None]:
+    """Hacky parser for the JSON streaming format used by Google Vertex AI."""
+    buf = ""
+    async for line in response.content:
+        # Eat the first array bracket, we'll do the same for the last one below.
+        line = line.decode("utf-8").strip()
+        if not buf and line.startswith("["):
+            line = line[1:]
+        # Split on comma-only lines, otherwise concatenate.
+        if line == ",":
+            yield json.loads(buf)
+            buf = ""
+        else:
+            buf += line
+    yield json.loads(buf[:-1])
 
+
+async def google_chat(context: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> Generator[str, None, None]:
         async for chunk in make_json_chunk_gen(response):
             yield chunk["outputs"][0]["structVal"]["candidates"]["listVal"][0][
@@ -300,6 +301,27 @@ async def google_chat(context: ApiContext) -> ApiResult:
                 "temperature": {"float_val": args.temperature},
                 "maxOutputTokens": {"int_val": args.max_tokens},
             }
+        },
+    }
+    return await post(context, url, headers, data, chunk_gen)
+
+
+async def gemini_chat(context: ApiContext) -> ApiResult:
+    async def chunk_gen(response) -> Generator[str, None, None]:
+        async for chunk in make_json_chunk_gen(response):
+            content = chunk["candidates"][0]["content"]
+            if "parts" in content:
+                part = content["parts"][0]
+                if "text" in part:
+                    yield part["text"]
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key={get_api_key('GOOGLE_VERTEXAI_API_KEY')}"
+    headers = make_headers()
+    data = {
+        "contents": [{"role": "user", "parts": [{"text": context.prompt}]}],
+        "generationConfig": {
+            "temperature": args.temperature,
+            "maxOutputTokens": args.max_tokens,
         },
     }
     return await post(context, url, headers, data, chunk_gen)
@@ -376,6 +398,8 @@ async def make_api_call(
         return await cloudflare_chat(context)
     elif model.startswith("chat-bison") or model.startswith("chat-unicorn"):
         return await google_chat(context)
+    elif model.startswith("gemini-"):
+        return await gemini_chat(context)
     elif model.startswith("Neets"):
         return await neets_chat(context)
     elif model.startswith("togethercomputer/"):
