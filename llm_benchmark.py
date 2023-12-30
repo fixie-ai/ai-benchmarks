@@ -317,12 +317,22 @@ async def gemini_chat(context: ApiContext) -> ApiResult:
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key={get_api_key('GOOGLE_VERTEXAI_API_KEY')}"
     headers = make_headers()
+    harm_categories = [
+        "HARM_CATEGORY_HARASSMENT",
+        "HARM_CATEGORY_HATE_SPEECH",
+        "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "HARM_CATEGORY_DANGEROUS_CONTENT",
+    ]
     data = {
         "contents": [{"role": "user", "parts": [{"text": context.prompt}]}],
         "generationConfig": {
             "temperature": args.temperature,
             "maxOutputTokens": args.max_tokens,
         },
+        "safetySettings": [
+            {"category": category, "threshold": "BLOCK_NONE"}
+            for category in harm_categories
+        ],
     }
     return await post(context, url, headers, data, chunk_gen)
 
@@ -448,7 +458,7 @@ async def async_main():
             else:
                 status = result.response.status
                 text = await result.response.text()
-                text = text[:80] + "..." if len(text) > 80 else text
+                # text = text[:80] + "..." if len(text) > 80 else text
                 print(
                     f"API Call {result.index} failed, status={status} latency={result.latency} text={text}"
                 )
