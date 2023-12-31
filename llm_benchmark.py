@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import argparse
 import asyncio
+import base64
 import dataclasses
 import json
+import mimetypes
 import os
 import time
 import urllib
@@ -24,6 +26,13 @@ parser.add_argument(
     help="Prompt to send to the API",
 )
 parser.add_argument(
+    "--file",
+    "-f",
+    type=str,
+    action="append",
+    help="Multimedia file(s) to include with the prompt",
+)
+parser.add_argument(
     "--model", "-m", type=str, default=DEFAULT_MODEL, help="Model to benchmark"
 )
 parser.add_argument(
@@ -39,6 +48,7 @@ parser.add_argument(
     default=DEFAULT_MAX_TOKENS,
     help="Max tokens for the response",
 )
+parser.add_argument("--detail", "-d", help="Image detail level to use, low or high")
 parser.add_argument(
     "--base-url",
     "-b",
@@ -91,11 +101,31 @@ args = parser.parse_args()
 
 
 @dataclasses.dataclass
+class InputFile:
+    @classmethod
+    def from_file(cls, path: str):
+        mime_type, _ = mimetypes.guess_type(path)
+        if not mime_type:
+            raise ValueError(f"Unknown file type: {path}")
+        with open(path, "rb") as f:
+            data = f.read()
+        return cls(mime_type, data)
+
+    mime_type: str
+    data: str
+
+    @property
+    def base64_data(self):
+        return base64.b64encode(self.data).decode("utf-8")
+
+
+@dataclasses.dataclass
 class ApiContext:
     session: aiohttp.ClientSession
     index: int
     model: str
     prompt: str
+    files: Optional[List[InputFile]]
 
 
 @dataclasses.dataclass
@@ -163,8 +193,20 @@ def make_openai_url_and_headers(model: str, path: str):
     return url, headers
 
 
-def make_messages(prompt: str):
-    return [{"role": "user", "content": prompt}]
+def make_openai_messages(prompt: str, files: List[InputFile]):
+    if not files:
+        content = prompt
+    else:
+        content = [{"type": "text", "text": prompt}]
+        for file in files:
+            if not file.mime_type.startswith("image/"):
+                raise ValueError(f"Unsupported file type: {file}")
+            url = f"data:{file.mime_type};base64,{file.base64_data}"
+            image_url = {"url": url}
+            if args.detail:
+                image_url["detail"] = args.detail
+            content.append({"type": "image_url", "image_url": image_url})
+    return [{"role": "user", "content": content}]
 
 
 def make_openai_chat_body(
@@ -203,7 +245,9 @@ async def openai_chunk_gen(response) -> Generator[str, None, None]:
 
 async def openai_chat(context: ApiContext) -> ApiResult:
     url, headers = make_openai_url_and_headers(context.model, "/chat/completions")
-    data = make_openai_chat_body(messages=make_messages(context.prompt))
+    data = make_openai_chat_body(
+        messages=make_openai_messages(context.prompt, context.files)
+    )
     return await post(context, url, headers, data, openai_chunk_gen)
 
 
@@ -245,7 +289,7 @@ async def cloudflare_chat(context: ApiContext) -> ApiResult:
     account_id = os.environ["CF_ACCOUNT_ID"]
     url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{args.model}"
     headers = make_headers(auth_token=get_api_key("CF_API_KEY"))
-    data = make_openai_chat_body(messages=make_messages(context.prompt))
+    data = make_openai_chat_body(messages=make_openai_messages(context.prompt))
     return await post(context, url, headers, data, chunk_gen)
 
 
@@ -306,6 +350,18 @@ async def google_chat(context: ApiContext) -> ApiResult:
     return await post(context, url, headers, data, chunk_gen)
 
 
+def make_gemini_messages(prompt: str, files: List[InputFile]):
+    parts = [{"text": prompt}]
+    for file in files:
+        if not file.mime_type.startswith("image/"):
+            raise ValueError(f"Unsupported file type: {file}")
+        parts.append(
+            {"inline_data": {"mime_type": file.mime_type, "data": file.base64_data}}
+        )
+
+    return [{"role": "user", "parts": parts}]
+
+
 async def gemini_chat(context: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> Generator[str, None, None]:
         async for chunk in make_json_chunk_gen(response):
@@ -315,10 +371,10 @@ async def gemini_chat(context: ApiContext) -> ApiResult:
                 if "text" in part:
                     yield part["text"]
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key={get_api_key('GOOGLE_VERTEXAI_API_KEY')}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key={get_api_key('GOOGLE_GEMINI_API_KEY')}"
     headers = make_headers()
     data = {
-        "contents": [{"role": "user", "parts": [{"text": context.prompt}]}],
+        "contents": make_gemini_messages(context.prompt, context.files),
         "generationConfig": {
             "temperature": args.temperature,
             "maxOutputTokens": args.max_tokens,
@@ -330,7 +386,7 @@ async def gemini_chat(context: ApiContext) -> ApiResult:
 async def neets_chat(context: ApiContext) -> ApiResult:
     url = "https://api.neets.ai/v1/chat/completions"
     headers = make_headers(x_api_key=get_api_key("NEETS_API_KEY"))
-    data = make_openai_chat_body(messages=make_messages(context.prompt))
+    data = make_openai_chat_body(messages=make_openai_messages(context.prompt))
     return await post(context, url, headers, data, openai_chunk_gen)
 
 
@@ -389,9 +445,13 @@ async def fixie_chat(context: ApiContext) -> ApiResult:
 
 
 async def make_api_call(
-    session: aiohttp.ClientSession, index: int, model: str, prompt: str
+    session: aiohttp.ClientSession,
+    index: int,
+    model: str,
+    prompt: str,
+    files: List[InputFile],
 ) -> ApiResult:
-    context = ApiContext(session, index, model, prompt)
+    context = ApiContext(session, index, model, prompt, files)
     if model.startswith("claude-"):
         return await anthropic_chat(context)
     elif model.startswith("@cf/"):
@@ -418,12 +478,13 @@ async def make_api_call(
 
 
 async def async_main():
+    files = [InputFile.from_file(file) for file in args.file or []]
     async with aiohttp.ClientSession() as session:
         if args.warmup:
             # Do a warmup call to make sure the connection is ready
             if args.verbose:
                 print("Making a warmup API call...")
-            await make_api_call(session, -1, args.model, "")
+            await make_api_call(session, -1, args.model, "", [])
 
         fq_model = (
             args.model if not args.base_url else f"{args.base_url[8:]}/{args.model}"
@@ -431,7 +492,9 @@ async def async_main():
         if not args.minimal:
             print(f"Racing {args.num_requests} API calls to {fq_model}...")
         tasks = [
-            asyncio.create_task(make_api_call(session, i, args.model, args.prompt))
+            asyncio.create_task(
+                make_api_call(session, i, args.model, args.prompt, files)
+            )
             for i in range(args.num_requests)
         ]
         results = []
@@ -448,7 +511,7 @@ async def async_main():
             else:
                 status = result.response.status
                 text = await result.response.text()
-                text = text[:80] + "..." if len(text) > 80 else text
+                text = text[:200] + "..." if len(text) > 200 else text
                 print(
                     f"API Call {result.index} failed, status={status} latency={result.latency} text={text}"
                 )
