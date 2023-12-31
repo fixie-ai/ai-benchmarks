@@ -5,12 +5,12 @@ This repo contains a handful of utilities for benchmarking the response latency 
 Large Language Models (LLMs):
 - OpenAI GPT-3.5, GPT-4 (from OpenAI or Azure OpenAI service)
 - Anthropic Claude 2, Claude Instant
-- Google PaLM 2
+- Google Gemini Pro and PaLM 2 Bison
 - Llama2 7B/70B from several different providers, including
- - Cloudflare
- - OctoML
- - Perplexity
- - Together
+  - Cloudflare
+  - OctoML
+  - Perplexity
+  - Together
 - Neets-7B
 
 Embedding Models:
