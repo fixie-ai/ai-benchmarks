@@ -8,9 +8,11 @@ import mimetypes
 import os
 import time
 import urllib
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 
 import aiohttp
+
+TokenGenerator = AsyncGenerator[Dict[str, Any], None]
 
 DEFAULT_PROMPT = "Say hello."
 DEFAULT_MODEL = "gpt-3.5-turbo"
@@ -112,7 +114,7 @@ class InputFile:
         return cls(mime_type, data)
 
     mime_type: str
-    data: str
+    data: bytes
 
     @property
     def base64_data(self):
@@ -125,7 +127,7 @@ class ApiContext:
     index: int
     model: str
     prompt: str
-    files: Optional[List[InputFile]]
+    files: List[InputFile]
 
 
 @dataclasses.dataclass
@@ -141,7 +143,7 @@ class ApiResult:
     start_time: int
     latency: float  # HTTP response time
     response: aiohttp.ClientResponse
-    chunk_gen: Generator[str, None, None]
+    chunk_gen: TokenGenerator
 
 
 async def post(
@@ -149,7 +151,7 @@ async def post(
     url: str,
     headers: dict,
     data: dict,
-    make_chunk_gen: callable(aiohttp.ClientResponse) = None,
+    make_chunk_gen: Optional[Callable[[aiohttp.ClientResponse], TokenGenerator]] = None,
 ):
     start_time = time.time()
     response = await context.session.post(url, headers=headers, data=json.dumps(data))
@@ -178,7 +180,8 @@ def make_headers(auth_token: Optional[str] = None, x_api_key: Optional[str] = No
 
 def make_openai_url_and_headers(model: str, path: str):
     url = args.base_url or "https://api.openai.com/v1"
-    use_azure = urllib.parse.urlparse(url).hostname.endswith(".azure.com")
+    hostname = urllib.parse.urlparse(url).hostname
+    use_azure = hostname and hostname.endswith(".azure.com")
     headers = {
         "Content-Type": "application/json",
     }
@@ -193,19 +196,19 @@ def make_openai_url_and_headers(model: str, path: str):
     return url, headers
 
 
-def make_openai_messages(prompt: str, files: List[InputFile]):
+def make_openai_messages(prompt: str, files: Optional[List[InputFile]] = None):
     if not files:
-        content = prompt
-    else:
-        content = [{"type": "text", "text": prompt}]
-        for file in files:
-            if not file.mime_type.startswith("image/"):
-                raise ValueError(f"Unsupported file type: {file}")
-            url = f"data:{file.mime_type};base64,{file.base64_data}"
-            image_url = {"url": url}
-            if args.detail:
-                image_url["detail"] = args.detail
-            content.append({"type": "image_url", "image_url": image_url})
+        return [{"role": "user", "content": prompt}]
+
+    content: List[Dict[str, Any]] = [{"type": "text", "text": prompt}]
+    for file in files:
+        if not file.mime_type.startswith("image/"):
+            raise ValueError(f"Unsupported file type: {file}")
+        url = f"data:{file.mime_type};base64,{file.base64_data}"
+        image_url = {"url": url}
+        if args.detail:
+            image_url["detail"] = args.detail
+        content.append({"type": "image_url", "image_url": image_url})
     return [{"role": "user", "content": content}]
 
 
@@ -225,7 +228,7 @@ def make_openai_chat_body(
     return body
 
 
-async def make_sse_chunk_gen(response) -> Generator[Dict, None, None]:
+async def make_sse_chunk_gen(response) -> TokenGenerator:
     async for line in response.content:
         line = line.decode("utf-8").strip()
         if line.startswith("data:"):
@@ -235,7 +238,7 @@ async def make_sse_chunk_gen(response) -> Generator[Dict, None, None]:
             yield json.loads(content)
 
 
-async def openai_chunk_gen(response) -> Generator[str, None, None]:
+async def openai_chunk_gen(response) -> TokenGenerator:
     async for chunk in make_sse_chunk_gen(response):
         if chunk["choices"]:
             delta_content = chunk["choices"][0]["delta"].get("content")
@@ -261,7 +264,7 @@ async def openai_embed(context: ApiContext) -> ApiResult:
 
 
 async def anthropic_chat(context: ApiContext) -> ApiResult:
-    async def chunk_gen(response) -> Generator[str, None, None]:
+    async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_sse_chunk_gen(response):
             yield chunk.get("completion", "")
 
@@ -282,7 +285,7 @@ async def anthropic_chat(context: ApiContext) -> ApiResult:
 
 
 async def cloudflare_chat(context: ApiContext) -> ApiResult:
-    async def chunk_gen(response) -> Generator[str, None, None]:
+    async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_sse_chunk_gen(response):
             yield chunk["response"]
 
@@ -293,7 +296,7 @@ async def cloudflare_chat(context: ApiContext) -> ApiResult:
     return await post(context, url, headers, data, chunk_gen)
 
 
-async def make_json_chunk_gen(response) -> Generator[Any, None, None]:
+async def make_json_chunk_gen(response) -> TokenGenerator:
     """Hacky parser for the JSON streaming format used by Google Vertex AI."""
     buf = ""
     async for line in response.content:
@@ -311,7 +314,7 @@ async def make_json_chunk_gen(response) -> Generator[Any, None, None]:
 
 
 async def google_chat(context: ApiContext) -> ApiResult:
-    async def chunk_gen(response) -> Generator[str, None, None]:
+    async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_json_chunk_gen(response):
             yield chunk["outputs"][0]["structVal"]["candidates"]["listVal"][0][
                 "structVal"
@@ -351,7 +354,7 @@ async def google_chat(context: ApiContext) -> ApiResult:
 
 
 def make_gemini_messages(prompt: str, files: List[InputFile]):
-    parts = [{"text": prompt}]
+    parts: List[Dict[str, Any]] = [{"text": prompt}]
     for file in files:
         if not file.mime_type.startswith("image/"):
             raise ValueError(f"Unsupported file type: {file}")
@@ -363,7 +366,7 @@ def make_gemini_messages(prompt: str, files: List[InputFile]):
 
 
 async def gemini_chat(context: ApiContext) -> ApiResult:
-    async def chunk_gen(response) -> Generator[str, None, None]:
+    async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_json_chunk_gen(response):
             content = chunk["candidates"][0]["content"]
             if "parts" in content:
@@ -391,7 +394,7 @@ async def neets_chat(context: ApiContext) -> ApiResult:
 
 
 async def together_chat(context: ApiContext) -> ApiResult:
-    async def chunk_gen(response) -> Generator[str, None, None]:
+    async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_sse_chunk_gen(response):
             yield chunk["choices"][0].get("text", "")
 
@@ -412,7 +415,7 @@ async def cohere_embed(context: ApiContext) -> ApiResult:
     return await post(context, url, headers, data)
 
 
-async def make_fixie_chunk_gen(response) -> Generator[str, None, None]:
+async def make_fixie_chunk_gen(response) -> TokenGenerator:
     text = ""
     async for line in response.content:
         line = line.decode("utf-8").strip()

@@ -72,12 +72,11 @@ class ApiContext:
 
 @dataclasses.dataclass
 class ApiResult:
-    def __init__(self, index, start_time, response, chunk_gen):
+    def __init__(self, index, start_time, response):
         self.index = index
         self.start_time = start_time
         self.latency = time.time() - start_time
         self.response = response
-        self.chunk_gen = chunk_gen
 
     index: int
     start_time: int
@@ -86,17 +85,10 @@ class ApiResult:
     chunk_gen: Generator[str, None, None]
 
 
-async def post(
-    context: ApiContext,
-    url: str,
-    headers: dict,
-    data: dict,
-    make_chunk_gen: callable(aiohttp.ClientResponse) = None,
-):
+async def post(context: ApiContext, url: str, headers: dict, data: dict):
     start_time = time.time()
     response = await context.session.post(url, headers=headers, data=json.dumps(data))
-    chunk_gen = make_chunk_gen(response) if make_chunk_gen else None
-    return ApiResult(context.index, start_time, response, chunk_gen)
+    return ApiResult(context.index, start_time, response)
 
 
 def get_api_key(env_var: str) -> str:
@@ -120,7 +112,8 @@ def make_headers(auth_token: Optional[str] = None, x_api_key: Optional[str] = No
 
 def make_openai_url_and_headers(model: str, path: str):
     url = args.base_url or "https://api.openai.com/v1"
-    use_azure = urllib.parse.urlparse(url).hostname.endswith(".azure.com")
+    hostname = urllib.parse.urlparse(url).hostname
+    use_azure = hostname and hostname.endswith(".azure.com")
     headers = {
         "Content-Type": "application/json",
     }
