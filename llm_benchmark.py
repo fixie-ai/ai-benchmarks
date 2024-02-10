@@ -368,20 +368,30 @@ def make_gemini_messages(prompt: str, files: List[InputFile]):
 async def gemini_chat(context: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_json_chunk_gen(response):
-            content = chunk["candidates"][0]["content"]
-            if "parts" in content:
+            content = chunk["candidates"][0].get("content", None)
+            if content and "parts" in content:
                 part = content["parts"][0]
                 if "text" in part:
                     yield part["text"]
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:streamGenerateContent?key={get_api_key('GOOGLE_GEMINI_API_KEY')}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{context.model}:streamGenerateContent?key={get_api_key('GOOGLE_GEMINI_API_KEY')}"
     headers = make_headers()
+    harm_categories = [
+        "HARM_CATEGORY_HARASSMENT",
+        "HARM_CATEGORY_HATE_SPEECH",
+        "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "HARM_CATEGORY_DANGEROUS_CONTENT",
+    ]
     data = {
         "contents": make_gemini_messages(context.prompt, context.files),
         "generationConfig": {
             "temperature": args.temperature,
             "maxOutputTokens": args.max_tokens,
         },
+        "safetySettings": [
+            {"category": category, "threshold": "BLOCK_NONE"}
+            for category in harm_categories
+        ],
     }
     return await post(context, url, headers, data, chunk_gen)
 

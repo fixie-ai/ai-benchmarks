@@ -8,6 +8,7 @@ python llm_benchmark.py --minimal -k $AZURE_EASTUS2_OPENAI_API_KEY -b https://fi
 python llm_benchmark.py --minimal -m claude-2 "$@"
 python llm_benchmark.py --minimal -m claude-instant-1 "$@"
 python llm_benchmark.py --minimal -k $(gcloud auth print-access-token) -m chat-bison "$@"
+python llm_benchmark.py --minimal -m gemini-pro "$@"
 python llm_benchmark.py --minimal -m togethercomputer/llama-2-7b-chat "$@"
 python llm_benchmark.py --minimal -m togethercomputer/llama-2-13b-chat "$@"
 python llm_benchmark.py --minimal -m togethercomputer/llama-2-70b-chat "$@"
