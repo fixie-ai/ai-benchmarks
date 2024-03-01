@@ -414,6 +414,37 @@ async def together_chat(context: ApiContext) -> ApiResult:
     return await post(context, url, headers, data, chunk_gen)
 
 
+async def mistral_chat(context: ApiContext) -> ApiResult:
+    url, headers = make_mistral_url_and_headers("/chat/completions")
+    data = {
+        "model": args.model,
+        "max_tokens": args.max_tokens,
+        "temperature": args.temperature,
+        "stream": True,
+        "messages": [{"role": "user", "content": context.prompt}]
+    }
+    return await post(context, url, headers, data, openai_chunk_gen)
+
+
+def make_mistral_url_and_headers(path: str):
+    url = args.base_url or "https://api.mistral.ai/v1"
+    url += path
+    hostname = urllib.parse.urlparse(url).hostname
+    use_azure = hostname and hostname.endswith(".azure.com")
+    headers = {
+        "Content-Type": "application/json",
+    }
+    if use_azure:
+        api_key = get_api_key("AZURE_MISTRAL_API_KEY")
+        headers["Authorization"] = api_key
+    else:
+        api_key = get_api_key("MISTRAL_API_KEY")
+        headers["Authorization"] = f"Bearer {api_key}"
+        headers["Accept"] = "application/json"
+        url += path
+    return url, headers
+
+
 async def cohere_embed(context: ApiContext) -> ApiResult:
     url = "https://api.cohere.ai/v1/embed"
     headers = make_headers(auth_token=get_api_key("COHERE_API_KEY"))
@@ -473,6 +504,8 @@ async def make_api_call(
         return await google_chat(context)
     elif model.startswith("gemini-"):
         return await gemini_chat(context)
+    elif model.startswith("mistral-"):
+        return await mistral_chat(context)
     elif model.startswith("Neets"):
         return await neets_chat(context)
     elif model.startswith("togethercomputer/"):
