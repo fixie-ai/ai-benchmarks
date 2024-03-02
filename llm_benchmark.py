@@ -34,9 +34,7 @@ parser.add_argument(
     action="append",
     help="Multimedia file(s) to include with the prompt",
 )
-parser.add_argument(
-    "--model", "-m", type=str, default=DEFAULT_MODEL, help="Model to benchmark"
-)
+parser.add_argument("--model", "-m", type=str, default="", help="Model to benchmark")
 parser.add_argument(
     "--temperature",
     "-t",
@@ -465,6 +463,7 @@ async def make_api_call(
     files: List[InputFile],
 ) -> ApiResult:
     context = ApiContext(session, index, model, prompt, files)
+    assert model or args.base_url
     if model.startswith("claude-"):
         return await anthropic_chat(context)
     elif model.startswith("@cf/"):
@@ -491,6 +490,10 @@ async def make_api_call(
 
 
 async def async_main():
+    if not args.model and not args.base_url:
+        print("Either MODEL or BASE_URL must be specified")
+        exit(1)
+
     files = [InputFile.from_file(file) for file in args.file or []]
     async with aiohttp.ClientSession() as session:
         if args.warmup:
