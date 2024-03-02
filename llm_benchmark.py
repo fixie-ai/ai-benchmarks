@@ -14,9 +14,9 @@ import aiohttp
 
 TokenGenerator = AsyncGenerator[Dict[str, Any], None]
 
+AZURE_OPENAI_API_VERSION = "2023-12-01"
 DEFAULT_PROMPT = "Say hello."
-DEFAULT_MODEL = "gpt-3.5-turbo"
-DEFAULT_MAX_TOKENS = 50
+DEFAULT_MAX_TOKENS = 100
 DEFAULT_NUM_REQUESTS = 5
 
 parser = argparse.ArgumentParser()
@@ -181,14 +181,14 @@ def make_headers(auth_token: Optional[str] = None, x_api_key: Optional[str] = No
 def make_openai_url_and_headers(model: str, path: str):
     url = args.base_url or "https://api.openai.com/v1"
     hostname = urllib.parse.urlparse(url).hostname
-    use_azure = hostname and hostname.endswith(".azure.com")
+    use_azure_openai = hostname and hostname.endswith("openai.azure.com")
     headers = {
         "Content-Type": "application/json",
     }
-    if use_azure:
+    if use_azure_openai:
         api_key = get_api_key("AZURE_OPENAI_API_KEY")
         headers["Api-Key"] = api_key
-        url += f"/openai/deployments/{model.replace('.', '')}{path}?api-version=2023-07-01-preview"
+        url += f"/openai/deployments/{model.replace('.', '')}{path}?api-version={AZURE_OPENAI_API_VERSION}"
     else:
         api_key = get_api_key("OPENAI_API_KEY")
         headers["Authorization"] = f"Bearer {api_key}"
