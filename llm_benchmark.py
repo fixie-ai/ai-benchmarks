@@ -463,7 +463,6 @@ async def make_api_call(
     files: List[InputFile],
 ) -> ApiResult:
     context = ApiContext(session, index, model, prompt, files)
-    assert model or args.base_url
     if model.startswith("claude-"):
         return await anthropic_chat(context)
     elif model.startswith("@cf/"):
