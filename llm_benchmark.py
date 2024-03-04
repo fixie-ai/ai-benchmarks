@@ -438,7 +438,8 @@ async def neets_chat(context: ApiContext) -> ApiResult:
 
 async def together_chat(context: ApiContext) -> ApiResult:
     """Make a Together chat completion request. The protocol is similar to OpenAI's,
-    but the URL doesn't follow the same scheme."""
+    but the URL doesn't follow the same scheme and the response structure is slightly different."""
+
 
     async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_sse_chunk_gen(response):
