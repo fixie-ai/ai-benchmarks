@@ -8,8 +8,11 @@ python llm_benchmark.py --minimal -k $AZURE_EASTUS2_OPENAI_API_KEY -b https://fi
 python llm_benchmark.py --minimal -k $AZURE_EASTUS2_LLAMA2_API_KEY -b https://fixie-llama-2-70b-serverless.eastus2.inference.ai.azure.com/v1 "$@"
 python llm_benchmark.py --minimal -k $AZURE_EASTUS2_MISTRAL_API_KEY -b https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1 "$@"
 python llm_benchmark.py --minimal -k $AZURE_WESTUS3_LLAMA2_API_KEY -b https://fixie-llama-2-70b-serverless.westus3.inference.ai.azure.com/v1 "$@"
-python llm_benchmark.py --minimal -m claude-2 "$@"
-python llm_benchmark.py --minimal -m claude-instant-1 "$@"
+python llm_benchmark.py --minimal -m claude-3-opus-20240229 "$@"
+python llm_benchmark.py --minimal -m claude-3-sonnet-20240229 "$@"
+# python llm_benchmark.py --minimal -m claude-3-haiku-20240229 "$@" (coming soon)
+python llm_benchmark.py --minimal -m claude-2.1 "$@"
+python llm_benchmark.py --minimal -m claude-instant-1.2 "$@"
 python llm_benchmark.py --minimal -k $(gcloud auth print-access-token) -m chat-bison "$@"
 python llm_benchmark.py --minimal -m gemini-pro "$@"
 python llm_benchmark.py --minimal -m togethercomputer/llama-2-7b-chat "$@"
