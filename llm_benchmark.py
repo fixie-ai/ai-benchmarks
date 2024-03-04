@@ -263,24 +263,48 @@ async def openai_embed(context: ApiContext) -> ApiResult:
     return await post(context, url, headers, data)
 
 
+def make_anthropic_messages(prompt: str, files: Optional[List[InputFile]] = None):
+    if not files:
+        return [{"role": "user", "content": prompt}]
+
+    content: List[Dict[str, Any]] = [{"type": "text", "text": prompt}]
+    for file in files:
+        if not file.mime_type.startswith("image/"):
+            raise ValueError(f"Unsupported file type: {file}")
+        source = {
+            "type": "base64",
+            "media_type": file.mime_type,
+            "data": file.base64_data,
+        }
+        content.append({"type": "image", "source": source})
+    return [{"role": "user", "content": content}]
+
+
 async def anthropic_chat(context: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> TokenGenerator:
+        tokens = 0
         async for chunk in make_sse_chunk_gen(response):
-            yield chunk.get("completion", "")
+            delta = chunk.get("delta")
+            if delta and delta.get("type") == "text_delta":
+                tokens += 1
+                yield delta["text"]
+            usage = chunk.get("usage")
+            if usage:
+                num_tokens = usage.get("output_tokens")
+                while tokens < num_tokens:
+                    tokens += 1
+                    yield ""
 
-    url = "https://api.anthropic.com/v1/complete"
+    url = "https://api.anthropic.com/v1/messages"
     headers = {
         "content-type": "application/json",
         "x-api-key": get_api_key("ANTHROPIC_API_KEY"),
         "anthropic-version": "2023-06-01",
+        "anthropic-beta": "messages-2023-12-15",
     }
-    data = {
-        "model": context.model,
-        "prompt": f"\n\nHuman: {context.prompt}\n\nAssistant:",
-        "max_tokens_to_sample": args.max_tokens,
-        "temperature": args.temperature,
-        "stream": True,
-    }
+    data = make_openai_chat_body(
+        messages=make_anthropic_messages(context.prompt, context.files)
+    )
     return await post(context, url, headers, data, chunk_gen)
 
 
