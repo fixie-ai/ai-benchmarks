@@ -543,9 +543,14 @@ async def async_main():
                 print("Making a warmup API call...")
             await make_api_call(session, -1, args.model, "", [])
 
-        fq_model = (
-            args.model if not args.base_url else f"{args.base_url[8:]}/{args.model}"
-        )
+        fq_model = ""
+        if args.base_url:
+            base_url = args.base_url[8:]
+            base_url = base_url.replace("openai.azure.com", "azure")
+            fq_model += base_url.replace("inference.ai.azure.com", "azure")
+        if fq_model and args.model:
+            fq_model += "/"
+        fq_model += args.model
         if not args.minimal:
             print(f"Racing {args.num_requests} API calls to {fq_model}...")
         tasks = [
@@ -626,7 +631,7 @@ async def async_main():
     median_latency = (results[med_index1].latency + results[med_index2].latency) / 2
     if num_tokens > 0:
         ttft = first_token_time - chosen.start_time
-        tps = (num_tokens - 1) / (end_time - first_token_time)
+        tps = min((num_tokens - 1) / (end_time - first_token_time), 999)
         total_time = end_time - chosen.start_time
     if not args.minimal:
         print(f"Latency saved: {latency_saved:.2f} seconds")
@@ -638,7 +643,7 @@ async def async_main():
             print(f"Total time: {total_time:.2f} seconds")
     else:
         print(
-            f"{fq_model:48} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:4.0f} | {total_time:5.2f} | {num_tokens:4}"
+            f"{fq_model:54} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:4.0f} | {total_time:5.2f} | {num_tokens:4}"
         )
 
 
