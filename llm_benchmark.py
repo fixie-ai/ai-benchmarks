@@ -262,6 +262,8 @@ async def openai_embed(context: ApiContext) -> ApiResult:
 
 
 def make_anthropic_messages(prompt: str, files: Optional[List[InputFile]] = None):
+    """Formats the prompt as a text chunk and any images as image chunks.
+    Note that Anthropic's image protocol is somewhat different from OpenAI's."""
     if not files:
         return [{"role": "user", "content": prompt}]
 
@@ -279,6 +281,9 @@ def make_anthropic_messages(prompt: str, files: Optional[List[InputFile]] = None
 
 
 async def anthropic_chat(context: ApiContext) -> ApiResult:
+    """Make an Anthropic chat completion request. The request protocol is similar to OpenAI's,
+    but the response protocol is completely different."""
+
     async def chunk_gen(response) -> TokenGenerator:
         tokens = 0
         async for chunk in make_sse_chunk_gen(response):
@@ -307,6 +312,9 @@ async def anthropic_chat(context: ApiContext) -> ApiResult:
 
 
 async def cloudflare_chat(context: ApiContext) -> ApiResult:
+    """Make a Cloudflare chat completion request. The protocol is similar to OpenAI's,
+    but the URL doesn't follow the same scheme."""
+
     async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_sse_chunk_gen(response):
             yield chunk["response"]
@@ -419,6 +427,8 @@ async def gemini_chat(context: ApiContext) -> ApiResult:
 
 
 async def neets_chat(context: ApiContext) -> ApiResult:
+    """Make a Neets chat completion request. The protocol is similar to OpenAI's,
+    but the authorization header is X-Api-Key instead of Authorization."""
     url = "https://api.neets.ai/v1/chat/completions"
     headers = make_headers(x_api_key=get_api_key("NEETS_API_KEY"))
     data = make_openai_chat_body(messages=make_openai_messages(context.prompt))
@@ -426,6 +436,9 @@ async def neets_chat(context: ApiContext) -> ApiResult:
 
 
 async def together_chat(context: ApiContext) -> ApiResult:
+    """Make a Together chat completion request. The protocol is similar to OpenAI's,
+    but the URL doesn't follow the same scheme."""
+
     async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_sse_chunk_gen(response):
             yield chunk["choices"][0].get("text", "")
