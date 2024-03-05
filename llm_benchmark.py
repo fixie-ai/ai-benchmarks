@@ -14,7 +14,7 @@ import aiohttp
 
 TokenGenerator = AsyncGenerator[Dict[str, Any], None]
 
-AZURE_OPENAI_API_VERSION = "2023-12-01"
+AZURE_OPENAI_API_VERSION = "2024-02-15-preview"
 DEFAULT_PROMPT = "Say hello."
 DEFAULT_MAX_TOKENS = 100
 DEFAULT_NUM_REQUESTS = 5
@@ -165,12 +165,18 @@ def get_api_key(env_var: str) -> str:
     raise ValueError(f"Missing API key: {env_var}")
 
 
-def make_headers(auth_token: Optional[str] = None, x_api_key: Optional[str] = None):
+def make_headers(
+    auth_token: Optional[str] = None,
+    api_key: Optional[str] = None,
+    x_api_key: Optional[str] = None,
+):
     headers = {
         "content-type": "application/json",
     }
     if auth_token:
         headers["authorization"] = f"Bearer {auth_token}"
+    if api_key:
+        headers["api-key"] = api_key
     if x_api_key:
         headers["x-api-key"] = x_api_key
     return headers
@@ -180,16 +186,13 @@ def make_openai_url_and_headers(model: str, path: str):
     url = args.base_url or "https://api.openai.com/v1"
     hostname = urllib.parse.urlparse(url).hostname
     use_azure_openai = hostname and hostname.endswith("openai.azure.com")
-    headers = {
-        "Content-Type": "application/json",
-    }
     if use_azure_openai:
         api_key = get_api_key("AZURE_OPENAI_API_KEY")
-        headers["Api-Key"] = api_key
+        headers = make_headers(api_key=api_key)
         url += f"/openai/deployments/{model.replace('.', '')}{path}?api-version={AZURE_OPENAI_API_VERSION}"
     else:
         api_key = get_api_key("OPENAI_API_KEY")
-        headers["Authorization"] = f"Bearer {api_key}"
+        headers = make_headers(auth_token=api_key)
         url += path
     return url, headers
 
@@ -313,8 +316,8 @@ async def anthropic_chat(context: ApiContext) -> ApiResult:
 
 async def cloudflare_chat(context: ApiContext) -> ApiResult:
     """Make a Cloudflare chat completion request. The protocol is similar to OpenAI's,
-    but the URL doesn't follow the same scheme and the response structure is different."""
-
+    but the URL doesn't follow the same scheme and the response structure is different.
+    """
 
     async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_sse_chunk_gen(response):
@@ -438,8 +441,8 @@ async def neets_chat(context: ApiContext) -> ApiResult:
 
 async def together_chat(context: ApiContext) -> ApiResult:
     """Make a Together chat completion request. The protocol is similar to OpenAI's,
-    but the URL doesn't follow the same scheme and the response structure is slightly different."""
-
+    but the URL doesn't follow the same scheme and the response structure is slightly different.
+    """
 
     async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_sse_chunk_gen(response):
@@ -540,9 +543,14 @@ async def async_main():
                 print("Making a warmup API call...")
             await make_api_call(session, -1, args.model, "", [])
 
-        fq_model = (
-            args.model if not args.base_url else f"{args.base_url[8:]}/{args.model}"
-        )
+        fq_model = ""
+        if args.base_url:
+            base_url = args.base_url[8:]
+            base_url = base_url.replace("openai.azure.com", "azure")
+            fq_model += base_url.replace("inference.ai.azure.com", "azure")
+        if fq_model and args.model:
+            fq_model += "/"
+        fq_model += args.model
         if not args.minimal:
             print(f"Racing {args.num_requests} API calls to {fq_model}...")
         tasks = [
@@ -623,7 +631,7 @@ async def async_main():
     median_latency = (results[med_index1].latency + results[med_index2].latency) / 2
     if num_tokens > 0:
         ttft = first_token_time - chosen.start_time
-        tps = (num_tokens - 1) / (end_time - first_token_time)
+        tps = min((num_tokens - 1) / (end_time - first_token_time), 999)
         total_time = end_time - chosen.start_time
     if not args.minimal:
         print(f"Latency saved: {latency_saved:.2f} seconds")
@@ -635,7 +643,7 @@ async def async_main():
             print(f"Total time: {total_time:.2f} seconds")
     else:
         print(
-            f"{fq_model:48} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:4.0f} | {total_time:5.2f} | {num_tokens:4}"
+            f"{fq_model:54} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:4.0f} | {total_time:5.2f} | {num_tokens:4}"
         )
 
 
