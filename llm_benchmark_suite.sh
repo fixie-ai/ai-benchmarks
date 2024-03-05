@@ -7,10 +7,6 @@ python llm_benchmark.py --minimal -k $AZURE_EASTUS2_OPENAI_API_KEY -b https://fi
 # gpt-3.5-turbo
 python llm_benchmark.py --minimal -m gpt-3.5-turbo-0125 "$@"
 python llm_benchmark.py --minimal -m gpt-3.5-turbo-1106 "$@"
-python llm_benchmark.py --minimal -b https://fixie-westus.openai.azure.com -m gpt-4-1106-preview "$@"
-python llm_benchmark.py --minimal -k $AZURE_EASTUS2_OPENAI_API_KEY -b https://fixie-openai-sub-with-gpt4.openai.azure.com -m gpt-4-1106-preview "$@"
-# gpt-3.5-turbo
-python llm_benchmark.py --minimal -m gpt-3.5-turbo-1106 "$@"
 python llm_benchmark.py --minimal -b https://fixie-westus.openai.azure.com -m gpt-3.5-turbo-1106 "$@"
 # No gpt-3.5-turbo-1106 in eastus2, so we use vanilla gpt-3.5-turbo here
 python llm_benchmark.py --minimal -k $AZURE_EASTUS2_OPENAI_API_KEY -b https://fixie-openai-sub-with-gpt4.openai.azure.com -m gpt-3.5-turbo "$@"
