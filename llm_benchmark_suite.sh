@@ -17,8 +17,8 @@ python llm_benchmark.py --minimal -m claude-3-sonnet-20240229 "$@"
 python llm_benchmark.py --minimal -m claude-2.1 "$@"
 python llm_benchmark.py --minimal -m claude-instant-1.2 "$@"
 # google
+python llm_benchmark.py --minimal -k $(gcloud auth print-access-token) -m gemini-pro "$@"
 python llm_benchmark.py --minimal -k $(gcloud auth print-access-token) -m chat-bison "$@"
-python llm_benchmark.py --minimal -m gemini-pro "$@"
 # mixtral-8x7b
 python llm_benchmark.py --minimal -k $AZURE_EASTUS2_MISTRAL_API_KEY -b https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1 "$@"
 python llm_benchmark.py --minimal -k $GROQ_API_KEY -b https://api.groq.com/openai/v1 -m mixtral-8x7b-32768 "$@"
