@@ -347,6 +347,14 @@ async def make_json_chunk_gen(response) -> TokenGenerator:
     yield json.loads(buf[:-1])
 
 
+def make_google_url_and_headers(model: str, method: str):
+    region = "us-west1"
+    project_id = os.environ["GCP_PROJECT"]
+    url = f"https://{region}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{region}/publishers/google/models/{model}:{method}"
+    headers = make_headers(auth_token=get_api_key("GOOGLE_VERTEXAI_API_KEY"))
+    return url, headers
+
+
 async def google_chat(context: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> TokenGenerator:
         async for chunk in make_json_chunk_gen(response):
@@ -354,10 +362,7 @@ async def google_chat(context: ApiContext) -> ApiResult:
                 "structVal"
             ]["content"]["stringVal"][0]
 
-    region = "us-west1"
-    project_id = os.environ["GCP_PROJECT"]
-    url = f"https://{region}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{region}/publishers/google/models/{args.model}:serverStreamingPredict"
-    headers = make_headers(auth_token=get_api_key("GOOGLE_VERTEXAI_API_KEY"))
+    url, headers = make_google_url_and_headers(args.model, "serverStreamingPredict")
     data = {
         "inputs": [
             {
@@ -401,31 +406,42 @@ def make_gemini_messages(prompt: str, files: List[InputFile]):
 
 async def gemini_chat(context: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> TokenGenerator:
+        tokens = 0
         async for chunk in make_json_chunk_gen(response):
-            content = chunk["candidates"][0].get("content", None)
+            content = chunk["candidates"][0].get("content")
             if content and "parts" in content:
                 part = content["parts"][0]
                 if "text" in part:
+                    tokens += 1
                     yield part["text"]
+            usage_metadata = chunk.get("usageMetadata")
+            if usage_metadata:
+                num_tokens = usage_metadata.get("candidatesTokenCount")
+                while tokens < num_tokens:
+                    tokens += 1
+                    yield ""
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{context.model}:streamGenerateContent?key={get_api_key('GOOGLE_GEMINI_API_KEY')}"
-    headers = make_headers()
-    harm_categories = [
-        "HARM_CATEGORY_HARASSMENT",
-        "HARM_CATEGORY_HATE_SPEECH",
-        "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-        "HARM_CATEGORY_DANGEROUS_CONTENT",
-    ]
+    # The Google AI Gemini API (URL below) doesn't return the number of generated tokens.
+    # Instead we use the Google Cloud Vertex AI Gemini API, which does return the number of tokens, but requires an Oauth credential.
+    # Also, setting safetySettings to BLOCK_NONE is not supported in the Vertex AI Gemini API, at least for now.
+    # url = f"https://generativelanguage.googleapis.com/v1beta/models/{context.model}:streamGenerateContent?key={get_api_key('GOOGLE_GEMINI_API_KEY')}"
+    url, headers = make_google_url_and_headers(args.model, "streamGenerateContent")    
+    # harm_categories = [
+    #    "HARM_CATEGORY_HARASSMENT",
+    #    "HARM_CATEGORY_HATE_SPEECH",
+    #    "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+    #    "HARM_CATEGORY_DANGEROUS_CONTENT",
+    #]
     data = {
         "contents": make_gemini_messages(context.prompt, context.files),
         "generationConfig": {
             "temperature": args.temperature,
             "maxOutputTokens": args.max_tokens,
         },
-        "safetySettings": [
-            {"category": category, "threshold": "BLOCK_NONE"}
-            for category in harm_categories
-        ],
+        # "safetySettings": [
+        #    {"category": category, "threshold": "BLOCK_NONE"}
+        #    for category in harm_categories
+        # ],
     }
     return await post(context, url, headers, data, chunk_gen)
 
