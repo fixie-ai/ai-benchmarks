@@ -625,6 +625,10 @@ async def async_main():
         ttft = first_token_time - chosen.start_time
         tps = (num_tokens - 1) / (end_time - first_token_time)
         total_time = end_time - chosen.start_time
+    else:
+        print("Error: no tokens received")
+        return
+
     if not args.minimal:
         print(f"Latency saved: {latency_saved:.2f} seconds")
         print(f"Optimized response time: {chosen.latency:.2f} seconds")
