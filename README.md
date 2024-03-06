@@ -4,14 +4,20 @@ This repo contains a handful of utilities for benchmarking the response latency 
 
 Large Language Models (LLMs):
 - OpenAI GPT-3.5, GPT-4 (from OpenAI or Azure OpenAI service)
-- Anthropic Claude 2, Claude Instant
+- Anthropic Claude 3, Claude 2, Claude Instant
 - Google Gemini Pro and PaLM 2 Bison
 - Llama2 7B/70B from several different providers, including
+  - Azure
   - Cloudflare
-  - OctoML
+  - Groq
+  - OctoAI
   - Perplexity
   - Together
-- Neets-7B
+- Mixtral 8x7B from several different providers, including
+  - Azure
+  - Groq
+  - OctoAI
+  - Perplexity
 
 Embedding Models:
 - Ada-002
@@ -21,11 +27,17 @@ Text-to-Speech Models (TTS):
 - ElevenLabs
 - PlayHT
 
+
 ## Leaderboard
 Snapshot below, click it to jump to the latest spreadsheet.
-[![Screenshot 2023-12-11 at 4 14 19 PM](https://github.com/fixie-ai/ai-benchmarks/assets/1821693/4613403d-a944-4dbf-9752-792453c9d13a)](https://docs.google.com/spreadsheets/d/e/2PACX-1vTPttBIJ676Ke5eKXh8EoOe9XrMZ1kgVh-hvuO-LP41GTNIbsHwx1bcb_SsoB3BTDZLNeMspqLQMXSS/pubhtml?gid=0&single=true)
+[![Screenshot 2024-03-05 at 4 08 20 PM](https://github.com/fixie-ai/ai-benchmarks/assets/1821693/97651011-fc8e-4481-bac9-cba0927aa485)](https://docs.google.com/spreadsheets/d/e/2PACX-1vTPttBIJ676Ke5eKXh8EoOe9XrMZ1kgVh-hvuO-LP41GTNIbsHwx1bcb_SsoB3BTDZLNeMspqLQMXSS/pubhtml?gid=0&single=true)
 
-
+### Test methodology
+- Tests are run from a Google Cloud console in us-west1.
+- A warmup connection is made to remove any connection setup latency.
+- The TTFT clock starts when the HTTP request is made and stops when the first token result is received in the response stream.
+- For each provider, three separate inferences are done, and the best result is kept (to remove any outliers due to queuing etc).
+- A best result is selected on 3 different days, and the median of these values is displayed.
 
 ## Initial setup
 
