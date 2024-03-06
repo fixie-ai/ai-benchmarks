@@ -34,6 +34,8 @@ Snapshot below, click it to jump to the latest spreadsheet.
 
 ### Test methodology
 - Tests are run from a Google Cloud console in us-west1.
+- Input requests are short, typically a single message (~20 tokens), and typically ask for a brief output response.
+- Max output tokens is set to 100, to avoid distortion of TPS values from long outputs.
 - A warmup connection is made to remove any connection setup latency.
 - The TTFT clock starts when the HTTP request is made and stops when the first token result is received in the response stream.
 - For each provider, three separate inferences are done, and the best result is kept (to remove any outliers due to queuing etc).
