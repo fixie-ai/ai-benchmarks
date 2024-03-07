@@ -425,13 +425,13 @@ async def gemini_chat(context: ApiContext) -> ApiResult:
     # Instead we use the Google Cloud Vertex AI Gemini API, which does return the number of tokens, but requires an Oauth credential.
     # Also, setting safetySettings to BLOCK_NONE is not supported in the Vertex AI Gemini API, at least for now.
     # url = f"https://generativelanguage.googleapis.com/v1beta/models/{context.model}:streamGenerateContent?key={get_api_key('GOOGLE_GEMINI_API_KEY')}"
-    url, headers = make_google_url_and_headers(args.model, "streamGenerateContent")    
+    url, headers = make_google_url_and_headers(args.model, "streamGenerateContent")
     # harm_categories = [
     #    "HARM_CATEGORY_HARASSMENT",
     #    "HARM_CATEGORY_HATE_SPEECH",
     #    "HARM_CATEGORY_SEXUALLY_EXPLICIT",
     #    "HARM_CATEGORY_DANGEROUS_CONTENT",
-    #]
+    # ]
     data = {
         "contents": make_gemini_messages(context.prompt, context.files),
         "generationConfig": {
@@ -650,8 +650,8 @@ async def async_main():
         tps = min((num_tokens - 1) / (end_time - first_token_time), 999)
         total_time = end_time - chosen.start_time
     else:
-        print("Error: no tokens received")
-        return
+        ttft = tps = total_time = 0.0
+        print(f"{fq_model}: no tokens received")
 
     if not args.minimal:
         print(f"Latency saved: {latency_saved:.2f} seconds")
