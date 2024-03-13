@@ -13,7 +13,7 @@ python llm_benchmark.py --minimal -k $AZURE_EASTUS2_OPENAI_API_KEY -b https://fi
 # claude
 python llm_benchmark.py --minimal -m claude-3-opus-20240229 "$@"
 python llm_benchmark.py --minimal -m claude-3-sonnet-20240229 "$@"
-# python llm_benchmark.py --minimal -m claude-3-haiku-20240229 "$@" (coming soon)
+python llm_benchmark.py --minimal -m claude-3-haiku-20240307 "$@"
 python llm_benchmark.py --minimal -m claude-2.1 "$@"
 python llm_benchmark.py --minimal -m claude-instant-1.2 "$@"
 # google
