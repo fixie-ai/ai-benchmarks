@@ -59,6 +59,12 @@ parser.add_argument(
     action="store_true",
     help="Display the image after generation",
 )
+parser.add_argument(
+    "--minimal",
+    action="store_true",
+    dest="minimal",
+    help="Print minimal output",
+)
 args = parser.parse_args()
 
 
@@ -145,8 +151,8 @@ async def async_main():
         fq_model = (
             args.model if not args.base_url else f"{args.base_url[8:]}/{args.model}"
         )
-        # if not args.minimal:
-        print(f"Invoking {fq_model}...")
+        if not args.minimal:
+            print(f"Invoking {fq_model}...")
         result = await dalle_image(ApiContext(session, 0, args.model, args.prompt))
         if not result.response.ok:
             print(f"Error: {result.response.status} {result.response.reason}")
@@ -157,8 +163,11 @@ async def async_main():
 
     latency = result.latency
     total_time = end_time - result.start_time
-    print(f"Response time: {latency:.2f} seconds")
-    print(f"Total time: {total_time:.2f} seconds")
+    if not args.minimal:
+        print(f"Response time: {latency:.2f} seconds")
+        print(f"Total time: {total_time:.2f} seconds")
+    else:
+        print(f"{fq_model:48} | {latency:5.2f} | {total_time:5.2f}")
     if args.play:
         with open("image.png", "wb") as f:
             b64 = data["data"][0]["b64_json"]
