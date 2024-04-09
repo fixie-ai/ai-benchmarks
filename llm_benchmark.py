@@ -240,11 +240,19 @@ async def make_sse_chunk_gen(response) -> TokenGenerator:
 
 
 async def openai_chunk_gen(response) -> TokenGenerator:
+    tokens = 0
     async for chunk in make_sse_chunk_gen(response):
         if chunk["choices"]:
             delta_content = chunk["choices"][0]["delta"].get("content")
             if delta_content:
+                tokens += 1
                 yield delta_content
+        usage = chunk.get("usage")
+        if usage:
+            num_tokens = usage.get("completion_tokens")
+            while tokens < num_tokens:
+                tokens += 1
+                yield ""
 
 
 async def openai_chat(context: ApiContext) -> ApiResult:
@@ -414,9 +422,9 @@ async def gemini_chat(context: ApiContext) -> ApiResult:
                 if "text" in part:
                     tokens += 1
                     yield part["text"]
-            usage_metadata = chunk.get("usageMetadata")
-            if usage_metadata:
-                num_tokens = usage_metadata.get("candidatesTokenCount")
+            usage = chunk.get("usageMetadata")
+            if usage:
+                num_tokens = usage.get("candidatesTokenCount")
                 while tokens < num_tokens:
                     tokens += 1
                     yield ""
@@ -564,9 +572,12 @@ async def async_main():
             base_url = args.base_url[8:]
             base_url = base_url.replace("openai.azure.com", "azure")
             fq_model += base_url.replace("inference.ai.azure.com", "azure")
-        if fq_model and args.model:
-            fq_model += "/"
-        fq_model += args.model
+        if fq_model:
+            if args.model:
+                last_slash = args.model.rfind("/")
+                fq_model += "/" + args.model[last_slash + 1 :]
+        else:
+            fq_model += args.model
         if not args.minimal:
             print(f"Racing {args.num_requests} API calls to {fq_model}...")
         tasks = [
@@ -591,13 +602,13 @@ async def async_main():
                 text = await result.response.text()
                 text = text[:200] + "..." if len(text) > 200 else text
                 print(
-                    f"API Call {result.index} failed, status={status} latency={result.latency} text={text}"
+                    f"API Call {result.index} failed, status={status} latency={result.latency:.2f} text={text}"
                 )
             tasks.remove(task)
 
         # Bail out if no tasks succeed
         if not chosen:
-            print("No successful API calls")
+            print(f"No successful API calls for {fq_model}")
             exit(1)
 
         if not args.minimal:
