@@ -1,5 +1,6 @@
 echo "Provider/Model                                         | TTR  | TTFT | TPS  | Total | Tokens"
 # gpt-4-turbo
+python llm_benchmark.py --minimal -m gpt-4-turbo "$@"
 python llm_benchmark.py --minimal -m gpt-4-0125-preview "$@"
 python llm_benchmark.py --minimal -m gpt-4-1106-preview "$@"
 python llm_benchmark.py --minimal -b https://fixie-westus.openai.azure.com -m gpt-4-1106-preview "$@"
