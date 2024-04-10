@@ -1,4 +1,4 @@
-echo "Provider/Model                                         | TTR  | TTFT | TPS  | Total | Tokens"
+echo "Provider/Model                           | TTR  | TTFT | TPS | Tok | Total | Response"
 # gpt-4-turbo
 python llm_benchmark.py --minimal -m gpt-4-turbo "$@"
 python llm_benchmark.py --minimal -m gpt-4-0125-preview "$@"
@@ -17,10 +17,13 @@ python llm_benchmark.py --minimal -m claude-3-sonnet-20240229 "$@"
 python llm_benchmark.py --minimal -m claude-3-haiku-20240307 "$@"
 python llm_benchmark.py --minimal -m claude-2.1 "$@"
 python llm_benchmark.py --minimal -m claude-instant-1.2 "$@"
+# cohere
+python llm_benchmark.py --minimal -m command-r-plus "$@"
+python llm_benchmark.py --minimal -m command-r "$@"
+python llm_benchmark.py --minimal -m command-light "$@"
 # google
 python llm_benchmark.py --minimal -k $(gcloud auth print-access-token) -m gemini-pro "$@"
-#python llm_benchmark.py --minimal -k $(gcloud auth print-access-token) -m gemini-1.5-pro-latest "$@"
-python llm_benchmark.py --minimal -k $(gcloud auth print-access-token) -m chat-bison "$@"
+python llm_benchmark.py --minimal -k $(gcloud auth print-access-token) -m gemini-1.5-pro-preview-0409 "$@"
 # mixtral-8x7b
 python llm_benchmark.py --minimal -k $AZURE_EASTUS2_MISTRAL_API_KEY -b https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1 "$@"
 python llm_benchmark.py --minimal -k $FIREWORKS_API_KEY -b https://api.fireworks.ai/inference/v1 -m "accounts/fireworks/models/mixtral-8x7b-instruct" "$@"
