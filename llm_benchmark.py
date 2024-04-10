@@ -6,18 +6,23 @@ import dataclasses
 import json
 import mimetypes
 import os
+import re
 import time
 import urllib
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 
 import aiohttp
 
-TokenGenerator = AsyncGenerator[Dict[str, Any], None]
+TokenGenerator = AsyncGenerator[str, None]
 
 AZURE_OPENAI_API_VERSION = "2024-02-15-preview"
-DEFAULT_PROMPT = "Say hello."
+DEFAULT_PROMPT = "Write a nonet about a sunset."
 DEFAULT_MAX_TOKENS = 100
-DEFAULT_NUM_REQUESTS = 5
+DEFAULT_NUM_REQUESTS = 4
+
+FMT_DEFAULT = "default"
+FMT_MINIMAL = "minimal"
+FMT_JSON = "json"
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -97,7 +102,12 @@ group.add_argument(
     dest="minimal",
     help="Print minimal output",
 )
-args = parser.parse_args()
+group.add_argument(
+    "--json",
+    action="store_true",
+    dest="json",
+    help="Print JSON output",
+)
 
 
 @dataclasses.dataclass
@@ -121,11 +131,26 @@ class InputFile:
 
 @dataclasses.dataclass
 class ApiContext:
+    def __init__(self, session, index, args, prompt, files):
+        self.session = session
+        self.index = index
+        self.model = args.model
+        self.prompt = prompt
+        self.files = files
+        self.temperature = args.temperature
+        self.max_tokens = args.max_tokens
+        self.api_key = args.api_key
+        self.base_url = args.base_url
+
     session: aiohttp.ClientSession
     index: int
     model: str
     prompt: str
     files: List[InputFile]
+    temperature: float
+    max_tokens: int
+    api_key: Optional[str] = None
+    base_url: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -145,21 +170,21 @@ class ApiResult:
 
 
 async def post(
-    context: ApiContext,
+    ctx: ApiContext,
     url: str,
     headers: dict,
     data: dict,
     make_chunk_gen: Optional[Callable[[aiohttp.ClientResponse], TokenGenerator]] = None,
 ):
     start_time = time.time()
-    response = await context.session.post(url, headers=headers, data=json.dumps(data))
+    response = await ctx.session.post(url, headers=headers, data=json.dumps(data))
     chunk_gen = make_chunk_gen(response) if make_chunk_gen else None
-    return ApiResult(context.index, start_time, response, chunk_gen)
+    return ApiResult(ctx.index, start_time, response, chunk_gen)
 
 
-def get_api_key(env_var: str) -> str:
-    if args.api_key:
-        return args.api_key
+def get_api_key(ctx: ApiContext, env_var: str) -> str:
+    if ctx.api_key:
+        return ctx.api_key
     if env_var in os.environ:
         return os.environ[env_var]
     raise ValueError(f"Missing API key: {env_var}")
@@ -182,16 +207,16 @@ def make_headers(
     return headers
 
 
-def make_openai_url_and_headers(model: str, path: str):
-    url = args.base_url or "https://api.openai.com/v1"
+def make_openai_url_and_headers(ctx: ApiContext, path: str):
+    url = ctx.base_url or "https://api.openai.com/v1"
     hostname = urllib.parse.urlparse(url).hostname
     use_azure_openai = hostname and hostname.endswith("openai.azure.com")
     if use_azure_openai:
-        api_key = get_api_key("AZURE_OPENAI_API_KEY")
+        api_key = get_api_key(ctx, "AZURE_OPENAI_API_KEY")
         headers = make_headers(api_key=api_key)
-        url += f"/openai/deployments/{model.replace('.', '')}{path}?api-version={AZURE_OPENAI_API_VERSION}"
+        url += f"/openai/deployments/{args.model.replace('.', '')}{path}?api-version={AZURE_OPENAI_API_VERSION}"
     else:
-        api_key = get_api_key("OPENAI_API_KEY")
+        api_key = get_api_key(ctx, "OPENAI_API_KEY")
         headers = make_headers(auth_token=api_key)
         url += path
     return url, headers
@@ -214,12 +239,14 @@ def make_openai_messages(prompt: str, files: Optional[List[InputFile]] = None):
 
 
 def make_openai_chat_body(
-    prompt: Optional[str] = None, messages: Optional[List[Dict]] = None
+    ctx: ApiContext,
+    prompt: Optional[str] = None,
+    messages: Optional[List[Dict]] = None,
 ):
     body = {
-        "model": args.model,
-        "max_tokens": args.max_tokens,
-        "temperature": args.temperature,
+        "model": ctx.model,
+        "max_tokens": ctx.max_tokens,
+        "temperature": ctx.temperature,
         "stream": True,
     }
     if prompt:
@@ -229,7 +256,7 @@ def make_openai_chat_body(
     return body
 
 
-async def make_sse_chunk_gen(response) -> TokenGenerator:
+async def make_sse_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
     async for line in response.content:
         line = line.decode("utf-8").strip()
         if line.startswith("data:"):
@@ -255,21 +282,18 @@ async def openai_chunk_gen(response) -> TokenGenerator:
                 yield ""
 
 
-async def openai_chat(context: ApiContext) -> ApiResult:
-    url, headers = make_openai_url_and_headers(context.model, "/chat/completions")
+async def openai_chat(ctx: ApiContext) -> ApiResult:
+    url, headers = make_openai_url_and_headers(ctx, "/chat/completions")
     data = make_openai_chat_body(
-        messages=make_openai_messages(context.prompt, context.files)
+        ctx, messages=make_openai_messages(ctx.prompt, ctx.files)
     )
-    return await post(context, url, headers, data, openai_chunk_gen)
+    return await post(ctx, url, headers, data, openai_chunk_gen)
 
 
-async def openai_embed(context: ApiContext) -> ApiResult:
-    url, headers = make_openai_url_and_headers(context.model, "/embeddings")
-    data = {
-        "model": context.model,
-        "input": context.prompt,
-    }
-    return await post(context, url, headers, data)
+async def openai_embed(ctx: ApiContext) -> ApiResult:
+    url, headers = make_openai_url_and_headers(ctx, "/embeddings")
+    data = {"model": ctx.model, "input": ctx.prompt}
+    return await post(ctx, url, headers, data)
 
 
 def make_anthropic_messages(prompt: str, files: Optional[List[InputFile]] = None):
@@ -291,7 +315,7 @@ def make_anthropic_messages(prompt: str, files: Optional[List[InputFile]] = None
     return [{"role": "user", "content": content}]
 
 
-async def anthropic_chat(context: ApiContext) -> ApiResult:
+async def anthropic_chat(ctx: ApiContext) -> ApiResult:
     """Make an Anthropic chat completion request. The request protocol is similar to OpenAI's,
     but the response protocol is completely different."""
 
@@ -312,17 +336,34 @@ async def anthropic_chat(context: ApiContext) -> ApiResult:
     url = "https://api.anthropic.com/v1/messages"
     headers = {
         "content-type": "application/json",
-        "x-api-key": get_api_key("ANTHROPIC_API_KEY"),
+        "x-api-key": get_api_key(ctx, "ANTHROPIC_API_KEY"),
         "anthropic-version": "2023-06-01",
         "anthropic-beta": "messages-2023-12-15",
     }
     data = make_openai_chat_body(
-        messages=make_anthropic_messages(context.prompt, context.files)
+        ctx, messages=make_anthropic_messages(ctx.prompt, ctx.files)
     )
-    return await post(context, url, headers, data, chunk_gen)
+    return await post(ctx, url, headers, data, chunk_gen)
 
 
-async def cloudflare_chat(context: ApiContext) -> ApiResult:
+async def cohere_chat(ctx: ApiContext) -> ApiResult:
+    """Make a Cohere chat completion request."""
+
+    async def chunk_gen(response) -> TokenGenerator:
+        tokens = 0
+        async for line in response.content:
+            chunk = json.loads(line)
+            if chunk.get("event_type") == "text-generation" and "text" in chunk:
+                tokens += 1
+                yield chunk["text"]
+
+    url = "https://api.cohere.ai/v1/chat"
+    headers = make_headers(auth_token=get_api_key(ctx, "COHERE_API_KEY"))
+    data = {"message": ctx.prompt, "model": ctx.model, "stream": True}
+    return await post(ctx, url, headers, data, chunk_gen)
+
+
+async def cloudflare_chat(ctx: ApiContext) -> ApiResult:
     """Make a Cloudflare chat completion request. The protocol is similar to OpenAI's,
     but the URL doesn't follow the same scheme and the response structure is different.
     """
@@ -332,13 +373,15 @@ async def cloudflare_chat(context: ApiContext) -> ApiResult:
             yield chunk["response"]
 
     account_id = os.environ["CF_ACCOUNT_ID"]
-    url = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{args.model}"
-    headers = make_headers(auth_token=get_api_key("CF_API_KEY"))
-    data = make_openai_chat_body(messages=make_openai_messages(context.prompt))
-    return await post(context, url, headers, data, chunk_gen)
+    url = (
+        f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{ctx.model}"
+    )
+    headers = make_headers(auth_token=get_api_key(ctx, "CF_API_KEY"))
+    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx.prompt))
+    return await post(ctx, url, headers, data, chunk_gen)
 
 
-async def make_json_chunk_gen(response) -> TokenGenerator:
+async def make_json_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
     """Hacky parser for the JSON streaming format used by Google Vertex AI."""
     buf = ""
     async for line in response.content:
@@ -355,49 +398,12 @@ async def make_json_chunk_gen(response) -> TokenGenerator:
     yield json.loads(buf[:-1])
 
 
-def make_google_url_and_headers(model: str, method: str):
+def make_google_url_and_headers(ctx: ApiContext, method: str):
     region = "us-west1"
     project_id = os.environ["GCP_PROJECT"]
-    url = f"https://{region}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{region}/publishers/google/models/{model}:{method}"
-    headers = make_headers(auth_token=get_api_key("GOOGLE_VERTEXAI_API_KEY"))
+    url = f"https://{region}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{region}/publishers/google/models/{ctx.model}:{method}"
+    headers = make_headers(auth_token=get_api_key(ctx, "GOOGLE_VERTEXAI_API_KEY"))
     return url, headers
-
-
-async def google_chat(context: ApiContext) -> ApiResult:
-    async def chunk_gen(response) -> TokenGenerator:
-        async for chunk in make_json_chunk_gen(response):
-            yield chunk["outputs"][0]["structVal"]["candidates"]["listVal"][0][
-                "structVal"
-            ]["content"]["stringVal"][0]
-
-    url, headers = make_google_url_and_headers(args.model, "serverStreamingPredict")
-    data = {
-        "inputs": [
-            {
-                "struct_val": {
-                    "messages": {
-                        "list_val": [
-                            {
-                                "struct_val": {
-                                    "content": {
-                                        "string_val": context.prompt,
-                                    },
-                                    "author": {"string_val": "user"},
-                                }
-                            }
-                        ]
-                    }
-                }
-            }
-        ],
-        "parameters": {
-            "struct_val": {
-                "temperature": {"float_val": args.temperature},
-                "maxOutputTokens": {"int_val": args.max_tokens},
-            }
-        },
-    }
-    return await post(context, url, headers, data, chunk_gen)
 
 
 def make_gemini_messages(prompt: str, files: List[InputFile]):
@@ -412,7 +418,7 @@ def make_gemini_messages(prompt: str, files: List[InputFile]):
     return [{"role": "user", "parts": parts}]
 
 
-async def gemini_chat(context: ApiContext) -> ApiResult:
+async def gemini_chat(ctx: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> TokenGenerator:
         tokens = 0
         async for chunk in make_json_chunk_gen(response):
@@ -432,8 +438,8 @@ async def gemini_chat(context: ApiContext) -> ApiResult:
     # The Google AI Gemini API (URL below) doesn't return the number of generated tokens.
     # Instead we use the Google Cloud Vertex AI Gemini API, which does return the number of tokens, but requires an Oauth credential.
     # Also, setting safetySettings to BLOCK_NONE is not supported in the Vertex AI Gemini API, at least for now.
-    # url = f"https://generativelanguage.googleapis.com/v1beta/models/{context.model}:streamGenerateContent?key={get_api_key('GOOGLE_GEMINI_API_KEY')}"
-    url, headers = make_google_url_and_headers(args.model, "streamGenerateContent")
+    # url = f"https://generativelanguage.googleapis.com/v1beta/models/{ctx.model}:streamGenerateContent?key={get_api_key('GOOGLE_GEMINI_API_KEY')}"
+    url, headers = make_google_url_and_headers(ctx, "streamGenerateContent")
     # harm_categories = [
     #    "HARM_CATEGORY_HARASSMENT",
     #    "HARM_CATEGORY_HATE_SPEECH",
@@ -441,29 +447,29 @@ async def gemini_chat(context: ApiContext) -> ApiResult:
     #    "HARM_CATEGORY_DANGEROUS_CONTENT",
     # ]
     data = {
-        "contents": make_gemini_messages(context.prompt, context.files),
+        "contents": make_gemini_messages(ctx.prompt, ctx.files),
         "generationConfig": {
-            "temperature": args.temperature,
-            "maxOutputTokens": args.max_tokens,
+            "temperature": ctx.temperature,
+            "maxOutputTokens": ctx.max_tokens,
         },
         # "safetySettings": [
         #    {"category": category, "threshold": "BLOCK_NONE"}
         #    for category in harm_categories
         # ],
     }
-    return await post(context, url, headers, data, chunk_gen)
+    return await post(ctx, url, headers, data, chunk_gen)
 
 
-async def neets_chat(context: ApiContext) -> ApiResult:
+async def neets_chat(ctx: ApiContext) -> ApiResult:
     """Make a Neets chat completion request. The protocol is similar to OpenAI's,
     but the authorization header is X-Api-Key instead of Authorization."""
     url = "https://api.neets.ai/v1/chat/completions"
-    headers = make_headers(x_api_key=get_api_key("NEETS_API_KEY"))
-    data = make_openai_chat_body(messages=make_openai_messages(context.prompt))
-    return await post(context, url, headers, data, openai_chunk_gen)
+    headers = make_headers(x_api_key=get_api_key(ctx, "NEETS_API_KEY"))
+    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx.prompt))
+    return await post(ctx, url, headers, data, openai_chunk_gen)
 
 
-async def together_chat(context: ApiContext) -> ApiResult:
+async def together_chat(ctx: ApiContext) -> ApiResult:
     """Make a Together chat completion request. The protocol is similar to OpenAI's,
     but the URL doesn't follow the same scheme and the response structure is slightly different.
     """
@@ -473,20 +479,20 @@ async def together_chat(context: ApiContext) -> ApiResult:
             yield chunk["choices"][0].get("text", "")
 
     url = "https://api.together.xyz/inference"
-    headers = make_headers(auth_token=get_api_key("TOGETHER_API_KEY"))
-    data = make_openai_chat_body(prompt=context.prompt)
-    return await post(context, url, headers, data, chunk_gen)
+    headers = make_headers(auth_token=get_api_key(ctx, "TOGETHER_API_KEY"))
+    data = make_openai_chat_body(ctx, prompt=ctx.prompt)
+    return await post(ctx, url, headers, data, chunk_gen)
 
 
-async def cohere_embed(context: ApiContext) -> ApiResult:
+async def cohere_embed(ctx: ApiContext) -> ApiResult:
     url = "https://api.cohere.ai/v1/embed"
-    headers = make_headers(auth_token=get_api_key("COHERE_API_KEY"))
+    headers = make_headers(auth_token=get_api_key(ctx, "COHERE_API_KEY"))
     data = {
-        "model": context.model,
-        "texts": [context.prompt],
+        "model": ctx.model,
+        "texts": [ctx.prompt],
         "input_type": "search_query",
     }
-    return await post(context, url, headers, data)
+    return await post(ctx, url, headers, data)
 
 
 async def make_fixie_chunk_gen(response) -> TokenGenerator:
@@ -514,62 +520,68 @@ async def make_fixie_chunk_gen(response) -> TokenGenerator:
                 print(f"Warning: got unexpected text: '{new_text}' vs '{text}'")
 
 
-async def fixie_chat(context: ApiContext) -> ApiResult:
-    url = f"https://api.fixie.ai/api/v1/agents/{context.model}/conversations"
-    headers = make_headers(auth_token=get_api_key("FIXIE_API_KEY"))
-    data = {"message": context.prompt, "runtimeParameters": {}}
-    return await post(context, url, headers, data, make_fixie_chunk_gen)
+async def fixie_chat(ctx: ApiContext) -> ApiResult:
+    url = f"https://api.fixie.ai/api/v1/agents/{ctx.model}/conversations"
+    headers = make_headers(auth_token=get_api_key(ctx, "FIXIE_API_KEY"))
+    data = {"message": ctx.prompt, "runtimeParameters": {}}
+    return await post(ctx, url, headers, data, make_fixie_chunk_gen)
 
 
 async def make_api_call(
     session: aiohttp.ClientSession,
     index: int,
-    model: str,
-    prompt: str,
-    files: List[InputFile],
+    args: argparse.Namespace,
+    prompt: Optional[str] = None,
+    files: Optional[List[InputFile]] = None,
 ) -> ApiResult:
-    context = ApiContext(session, index, model, prompt, files)
-    if model.startswith("claude-"):
-        return await anthropic_chat(context)
-    elif model.startswith("@cf/"):
-        return await cloudflare_chat(context)
-    elif model.startswith("chat-bison") or model.startswith("chat-unicorn"):
-        return await google_chat(context)
-    elif model.startswith("gemini-"):
-        return await gemini_chat(context)
-    elif model.startswith("Neets"):
-        return await neets_chat(context)
-    elif model.startswith("togethercomputer/"):
-        return await together_chat(context)
-    elif model.startswith("text-embedding-ada-"):
-        return await openai_embed(context)
-    elif model.startswith("embed-"):
-        return await cohere_embed(context)
-    # This catch-all needs to be at the end, since it triggers if args.base_url is set.
-    elif args.base_url or model.startswith("gpt-") or model.startswith("ft:gpt-"):
-        return await openai_chat(context)
-    elif "/" in model:
-        return await fixie_chat(context)
-    else:
-        raise ValueError(f"Unknown model: {model}")
+    model = args.model
+    prefix = re.split("-|/", model)[0]
+    ctx = ApiContext(session, index, args, prompt or "", files or [])
+    match (prefix):
+        case "claude":
+            return await anthropic_chat(ctx)
+        case "command":
+            return await cohere_chat(ctx)
+        case "@cf":
+            return await cloudflare_chat(ctx)
+        case "gemini":
+            return await gemini_chat(ctx)
+        case "Neets":
+            return await neets_chat(ctx)
+        case "togethercomputer":
+            return await together_chat(ctx)
+        case "text-embedding-ada":
+            return await openai_embed(ctx)
+        case "embed":
+            return await cohere_embed(ctx)
+        case _ if args.base_url or model.startswith("gpt-") or model.startswith(
+            "ft:gpt-"
+        ):
+            return await openai_chat(ctx)
+        # case _ elif "/" in model return await fixie_chat(ctx)
+        case _:
+            raise ValueError(f"Unknown model: {model}")
 
 
-async def async_main():
+async def async_main(args: argparse.Namespace):
     if not args.model and not args.base_url:
         print("Either MODEL or BASE_URL must be specified")
         exit(1)
 
+    format = FMT_MINIMAL if args.minimal else FMT_JSON if args.json else FMT_DEFAULT
     files = [InputFile.from_file(file) for file in args.file or []]
     async with aiohttp.ClientSession() as session:
         if args.warmup:
             # Do a warmup call to make sure the connection is ready
             if args.verbose:
                 print("Making a warmup API call...")
-            await make_api_call(session, -1, args.model, "", [])
+            await make_api_call(session, -1, args)
 
         fq_model = ""
         if args.base_url:
-            base_url = args.base_url[8:]
+            base_url = args.base_url[8:].split("/")[0]
+            base_url = base_url.replace("fixie-openai-sub-with-gpt4", "fixie-eastus2")
+            base_url = base_url.replace("-serverless", "")
             base_url = base_url.replace("openai.azure.com", "azure")
             fq_model += base_url.replace("inference.ai.azure.com", "azure")
         if fq_model:
@@ -578,12 +590,10 @@ async def async_main():
                 fq_model += "/" + args.model[last_slash + 1 :]
         else:
             fq_model += args.model
-        if not args.minimal:
+        if format == FMT_DEFAULT:
             print(f"Racing {args.num_requests} API calls to {fq_model}...")
         tasks = [
-            asyncio.create_task(
-                make_api_call(session, i, args.model, args.prompt, files)
-            )
+            asyncio.create_task(make_api_call(session, i, args, args.prompt, files))
             for i in range(args.num_requests)
         ]
         results = []
@@ -611,14 +621,16 @@ async def async_main():
             print(f"No successful API calls for {fq_model}")
             exit(1)
 
-        if not args.minimal:
+        if format == FMT_DEFAULT:
             print(f"Chosen API Call: {chosen.index} ({chosen.latency:.2f}s)")
 
         # Stream out the tokens, if we're doing completion
         first_token_time = None
+        output = ""
         num_tokens = 0
         if chosen.chunk_gen:
             async for chunk in chosen.chunk_gen:
+                output += chunk
                 num_tokens += 1
                 if not first_token_time:
                     first_token_time = time.time()
@@ -630,8 +642,8 @@ async def async_main():
 
         # Wait for the rest of the tasks to complete and clean up
         if tasks:
-            done = await asyncio.wait(tasks)
-            results += [task.result() for task in done[0]]
+            done, _ = await asyncio.wait(tasks)
+            results += [task.result() for task in done]
             for result in results:
                 await result.response.release()
 
@@ -664,7 +676,7 @@ async def async_main():
         ttft = tps = total_time = 0.0
         print(f"{fq_model}: no tokens received")
 
-    if not args.minimal:
+    if format == "default":
         print(f"Latency saved: {latency_saved:.2f} seconds")
         print(f"Optimized response time: {chosen.latency:.2f} seconds")
         print(f"Median response time: {median_latency:.2f} seconds")
@@ -672,10 +684,27 @@ async def async_main():
             print(f"Time to first token: {ttft:.2f} seconds")
             print(f"Tokens: {num_tokens} ({tps:.0f} tokens/sec)")
             print(f"Total time: {total_time:.2f} seconds")
-    else:
+    elif format == "minimal":
+        minimal_output = output.replace("\n", "\\n").strip()[:64]
         print(
-            f"{fq_model:54} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:4.0f} | {total_time:5.2f} | {num_tokens:4}"
+            f"{fq_model:40} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | {minimal_output}"
+        )
+    elif format == "json":
+        print(
+            json.dumps(
+                {
+                    "model": fq_model,
+                    "ttr": chosen.latency,
+                    "ttft": ttft,
+                    "tps": tps,                    
+                    "num_tokens": num_tokens,
+                    "total_time": total_time,
+                    "output": output,
+                }
+            )
         )
 
 
-asyncio.run(async_main())
+if __name__ == "__main__":
+    args = parser.parse_args()
+    asyncio.run(async_main(args))
