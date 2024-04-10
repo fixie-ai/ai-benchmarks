@@ -23,6 +23,7 @@ DEFAULT_NUM_REQUESTS = 4
 FMT_DEFAULT = "default"
 FMT_MINIMAL = "minimal"
 FMT_JSON = "json"
+FMT_NONE = "none"
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -88,26 +89,20 @@ parser.add_argument(
     dest="print",
     help="Print the response",
 )
-group = parser.add_mutually_exclusive_group()
-group.add_argument(
+parser.add_argument(
     "--verbose",
     "-v",
     action="store_true",
     dest="verbose",
     help="Print verbose output",
 )
-group.add_argument(
-    "--minimal",
-    action="store_true",
-    dest="minimal",
-    help="Print minimal output",
+parser.add_argument(
+    "--format",
+    "-F",
+    type=str,
+    default=FMT_DEFAULT,
 )
-group.add_argument(
-    "--json",
-    action="store_true",
-    dest="json",
-    help="Print JSON output",
-)
+parser.add_argument("--filter")
 
 
 @dataclasses.dataclass
@@ -214,7 +209,7 @@ def make_openai_url_and_headers(ctx: ApiContext, path: str):
     if use_azure_openai:
         api_key = get_api_key(ctx, "AZURE_OPENAI_API_KEY")
         headers = make_headers(api_key=api_key)
-        url += f"/openai/deployments/{args.model.replace('.', '')}{path}?api-version={AZURE_OPENAI_API_VERSION}"
+        url += f"/openai/deployments/{ctx.model.replace('.', '')}{path}?api-version={AZURE_OPENAI_API_VERSION}"
     else:
         api_key = get_api_key(ctx, "OPENAI_API_KEY")
         headers = make_headers(auth_token=api_key)
@@ -566,9 +561,10 @@ async def make_api_call(
 async def async_main(args: argparse.Namespace):
     if not args.model and not args.base_url:
         print("Either MODEL or BASE_URL must be specified")
-        exit(1)
+        return None
+    if args.filter and args.filter not in args.model:
+        return None
 
-    format = FMT_MINIMAL if args.minimal else FMT_JSON if args.json else FMT_DEFAULT
     files = [InputFile.from_file(file) for file in args.file or []]
     async with aiohttp.ClientSession() as session:
         if args.warmup:
@@ -590,7 +586,7 @@ async def async_main(args: argparse.Namespace):
                 fq_model += "/" + args.model[last_slash + 1 :]
         else:
             fq_model += args.model
-        if format == FMT_DEFAULT:
+        if args.format == FMT_DEFAULT:
             print(f"Racing {args.num_requests} API calls to {fq_model}...")
         tasks = [
             asyncio.create_task(make_api_call(session, i, args, args.prompt, files))
@@ -619,9 +615,9 @@ async def async_main(args: argparse.Namespace):
         # Bail out if no tasks succeed
         if not chosen:
             print(f"No successful API calls for {fq_model}")
-            exit(1)
+            return None
 
-        if format == FMT_DEFAULT:
+        if args.format == FMT_DEFAULT:
             print(f"Chosen API Call: {chosen.index} ({chosen.latency:.2f}s)")
 
         # Stream out the tokens, if we're doing completion
@@ -676,7 +672,16 @@ async def async_main(args: argparse.Namespace):
         ttft = tps = total_time = 0.0
         print(f"{fq_model}: no tokens received")
 
-    if format == "default":
+    metrics = {
+        "model": fq_model,
+        "ttr": chosen.latency,
+        "ttft": ttft,
+        "tps": tps,
+        "num_tokens": num_tokens,
+        "total_time": total_time,
+        "output": output,
+    }
+    if args.format == "default":
         print(f"Latency saved: {latency_saved:.2f} seconds")
         print(f"Optimized response time: {chosen.latency:.2f} seconds")
         print(f"Median response time: {median_latency:.2f} seconds")
@@ -684,25 +689,19 @@ async def async_main(args: argparse.Namespace):
             print(f"Time to first token: {ttft:.2f} seconds")
             print(f"Tokens: {num_tokens} ({tps:.0f} tokens/sec)")
             print(f"Total time: {total_time:.2f} seconds")
-    elif format == "minimal":
+    elif args.format == "minimal":
         minimal_output = output.replace("\n", "\\n").strip()[:64]
         print(
             f"{fq_model:40} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | {minimal_output}"
         )
-    elif format == "json":
-        print(
-            json.dumps(
-                {
-                    "model": fq_model,
-                    "ttr": chosen.latency,
-                    "ttft": ttft,
-                    "tps": tps,                    
-                    "num_tokens": num_tokens,
-                    "total_time": total_time,
-                    "output": output,
-                }
-            )
-        )
+    elif args.format == "json":
+        print(json.dumps(metrics))
+    return metrics
+
+
+async def run(argv: List[str]):
+    args = parser.parse_args(argv)
+    return await async_main(args)
 
 
 if __name__ == "__main__":
