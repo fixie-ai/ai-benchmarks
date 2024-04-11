@@ -45,12 +45,32 @@ def text_tasks():
     return [
         run("gpt-4-turbo"),
         run("gpt-4-0125-preview"),
+        run(
+            "gpt-4-0125-preview",
+            key=os.getenv("AZURE_SCENTRALUS_OPENAI_API_KEY"),
+            base_url="https://fixie-scentralus.openai.azure.com",
+        ),
         run("gpt-4-1106-preview"),
         run("gpt-4-1106-preview", base_url="https://fixie-westus.openai.azure.com"),
         run(
             "gpt-4-1106-preview",
             key=AZURE_EASTUS2_OPENAI_API_KEY,
             base_url="https://fixie-openai-sub-with-gpt4.openai.azure.com",
+        ),
+        run(
+            "gpt-4-1106-preview",
+            key=os.getenv("AZURE_FRCENTRAL_OPENAI_API_KEY"),
+            base_url="https://fixie-frcentral.openai.azure.com",
+        ),
+        run(
+            "gpt-4-1106-preview",
+            key=os.getenv("AZURE_SECENTRAL_OPENAI_API_KEY"),
+            base_url="https://fixie-secentral.openai.azure.com",
+        ),
+        run(
+            "gpt-4-1106-preview",
+            key=os.getenv("AZURE_UKSOUTH_OPENAI_API_KEY"),
+            base_url="https://fixie-uksouth.openai.azure.com",
         ),
         run("gpt-3.5-turbo-0125"),
         run("gpt-3.5-turbo-1106"),
@@ -174,13 +194,16 @@ def get_tasks(mode: str):
 
 async def print_results(results: List[Dict]):
     print(
-        "Provider/Model                           | TTR  | TTFT | TPS | Tok | Total | Response"
+        "| Provider/Model                             | TTR  | TTFT | TPS | Tok | Total |"
+        " Response                                                         |\n"
+        "| :----------------------------------------- | :--- | :--- | :-- | :-- | :---- |"
+        " :--------------------------------------------------------------- |"
     )
     for r in results:
         output = r["output"].replace("\n", "\\n").strip()[:64]
         print(
-            f"{r['model']:<40} | {r['ttr']:4.2f} | {r['ttft']:4.2f} | "
-            f"{r['tps']:3.0f} | {r['num_tokens']:3} | {r['total_time']:5.2f} | {output}"
+            f"| {r['model']:<42} | {r['ttr']:4.2f} | {r['ttft']:4.2f} | "
+            f"{r['tps']:3.0f} | {r['num_tokens']:3} | {r['total_time']:5.2f} | {output} |"
         )
 
 
