@@ -132,6 +132,7 @@ class ApiContext:
         self.model = args.model
         self.prompt = prompt
         self.files = files
+        self.detail = args.detail
         self.temperature = args.temperature
         self.max_tokens = args.max_tokens
         self.api_key = args.api_key
@@ -144,6 +145,7 @@ class ApiContext:
     files: List[InputFile]
     temperature: float
     max_tokens: int
+    detail: Optional[str] = None
     api_key: Optional[str] = None
     base_url: Optional[str] = None
 
@@ -217,18 +219,18 @@ def make_openai_url_and_headers(ctx: ApiContext, path: str):
     return url, headers
 
 
-def make_openai_messages(prompt: str, files: Optional[List[InputFile]] = None):
-    if not files:
-        return [{"role": "user", "content": prompt}]
+def make_openai_messages(ctx: ApiContext):
+    if not ctx.files:
+        return [{"role": "user", "content": ctx.prompt}]
 
-    content: List[Dict[str, Any]] = [{"type": "text", "text": prompt}]
-    for file in files:
+    content: List[Dict[str, Any]] = [{"type": "text", "text": ctx.prompt}]
+    for file in ctx.files:
         if not file.mime_type.startswith("image/"):
             raise ValueError(f"Unsupported file type: {file}")
         url = f"data:{file.mime_type};base64,{file.base64_data}"
         image_url = {"url": url}
-        if args.detail:
-            image_url["detail"] = args.detail
+        if ctx.detail:
+            image_url["detail"] = ctx.detail
         content.append({"type": "image_url", "image_url": image_url})
     return [{"role": "user", "content": content}]
 
@@ -279,9 +281,7 @@ async def openai_chunk_gen(response) -> TokenGenerator:
 
 async def openai_chat(ctx: ApiContext) -> ApiResult:
     url, headers = make_openai_url_and_headers(ctx, "/chat/completions")
-    data = make_openai_chat_body(
-        ctx, messages=make_openai_messages(ctx.prompt, ctx.files)
-    )
+    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx))
     return await post(ctx, url, headers, data, openai_chunk_gen)
 
 
@@ -372,7 +372,7 @@ async def cloudflare_chat(ctx: ApiContext) -> ApiResult:
         f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{ctx.model}"
     )
     headers = make_headers(auth_token=get_api_key(ctx, "CF_API_KEY"))
-    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx.prompt))
+    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx))
     return await post(ctx, url, headers, data, chunk_gen)
 
 
@@ -460,7 +460,7 @@ async def neets_chat(ctx: ApiContext) -> ApiResult:
     but the authorization header is X-Api-Key instead of Authorization."""
     url = "https://api.neets.ai/v1/chat/completions"
     headers = make_headers(x_api_key=get_api_key(ctx, "NEETS_API_KEY"))
-    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx.prompt))
+    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx))
     return await post(ctx, url, headers, data, openai_chunk_gen)
 
 
@@ -558,7 +558,7 @@ async def make_api_call(
             raise ValueError(f"Unknown model: {model}")
 
 
-async def async_main(args: argparse.Namespace):
+async def main(args: argparse.Namespace):
     if not args.model and not args.base_url:
         print("Either MODEL or BASE_URL must be specified")
         return None
@@ -568,10 +568,12 @@ async def async_main(args: argparse.Namespace):
     files = [InputFile.from_file(file) for file in args.file or []]
     async with aiohttp.ClientSession() as session:
         if args.warmup:
-            # Do a warmup call to make sure the connection is ready
+            # Do a warmup call to make sure the connection is ready,
+            # and sleep it off to make sure it doesn't affect rate limits.
             if args.verbose:
                 print("Making a warmup API call...")
             await make_api_call(session, -1, args)
+            await asyncio.sleep(1.0)
 
         fq_model = ""
         if args.base_url:
@@ -701,9 +703,9 @@ async def async_main(args: argparse.Namespace):
 
 async def run(argv: List[str]):
     args = parser.parse_args(argv)
-    return await async_main(args)
+    return await main(args)
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    asyncio.run(async_main(args))
+    asyncio.run(main(args))
