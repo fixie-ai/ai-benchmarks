@@ -694,7 +694,7 @@ async def main(args: argparse.Namespace):
     elif args.format == "minimal":
         minimal_output = output.replace("\n", "\\n").strip()[:64]
         print(
-            f"{fq_model:40} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | {minimal_output}"
+            f"| {fq_model:42} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | {minimal_output} |"
         )
     elif args.format == "json":
         print(json.dumps(metrics))
