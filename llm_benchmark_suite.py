@@ -1,8 +1,24 @@
+import argparse
 import asyncio
+import json
 import llm_benchmark
 import logging
 import os
 import sys
+import time
+
+from typing import Dict, List
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--json", action="store_true", help="Output results as JSON")
+parser.add_argument(
+    "--mode",
+    "-m",
+    choices=["text", "vision"],
+    default="text",
+    help="Mode to run benchmarks for",
+)
+args, unknown_args = parser.parse_known_args()
 
 
 async def run(model, key=None, base_url=None):
@@ -11,7 +27,7 @@ async def run(model, key=None, base_url=None):
         run_args.append(f"--api-key={key}")
     if base_url:
         run_args.append(f"--base-url={base_url}")
-    run_args.extend(sys.argv[1:])
+    run_args.extend(unknown_args)
     try:
         return await llm_benchmark.run(run_args)
     except Exception:
@@ -19,17 +35,14 @@ async def run(model, key=None, base_url=None):
         return None
 
 
-async def main():
+def text_tasks():
     AZURE_EASTUS2_OPENAI_API_KEY = os.getenv("AZURE_EASTUS2_OPENAI_API_KEY")
     FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY")
     GCLOUD_ACCESS_TOKEN = os.popen("gcloud auth print-access-token").read().strip()
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     OCTOML_API_KEY = os.getenv("OCTOML_API_KEY")
     PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
-    print(
-        "Provider/Model                           | TTR  | TTFT | TPS | Tok | Total | Response"
-    )
-    tasks = [
+    return [
         run("gpt-4-turbo"),
         run("gpt-4-0125-preview"),
         run("gpt-4-1106-preview"),
@@ -137,15 +150,49 @@ async def main():
         run("@cf/meta/llama-2-7b-chat-int8"),
         run("Neets-7B"),
     ]
-    done = await asyncio.gather(*tasks)
 
-    for r in done:
-        if r is not None:
-            output = r["output"].replace("\n", "\\n").strip()[:64]
-            print(
-                f"{r['model']:<40} | {r['ttr']:4.2f} | {r['ttft']:4.2f} | "
-                f"{r['tps']:3.0f} | {r['num_tokens']:3} | {r['total_time']:5.2f} | {output}"
-            )
+
+def vision_tasks():
+    GCLOUD_ACCESS_TOKEN = os.popen("gcloud auth print-access-token").read().strip()
+    return [
+        run("gpt-4-turbo"),
+        run("gpt-4-vision-preview", base_url="https://fixie-westus.openai.azure.com"),
+        run("claude-3-opus-20240229"),
+        run("claude-3-sonnet-20240229"),
+        run("gemini-pro-vision", key=GCLOUD_ACCESS_TOKEN),
+    ]
+
+
+def get_tasks(mode: str):
+    if mode == "text":
+        return text_tasks()
+    elif mode == "vision":
+        return vision_tasks()
+    else:
+        raise ValueError(f"Unknown mode {mode}")
+
+
+async def print_results(results: List[Dict]):
+    print(
+        "Provider/Model                           | TTR  | TTFT | TPS | Tok | Total | Response"
+    )
+    for r in results:
+        output = r["output"].replace("\n", "\\n").strip()[:64]
+        print(
+            f"{r['model']:<40} | {r['ttr']:4.2f} | {r['ttft']:4.2f} | "
+            f"{r['tps']:3.0f} | {r['num_tokens']:3} | {r['total_time']:5.2f} | {output}"
+        )
+
+
+async def main():
+    start_time = time.time()
+    tasks = get_tasks(args.mode)
+    results = [r for r in await asyncio.gather(*tasks) if r is not None]
+    if args.json:
+        out = {"time": start_time(), "cmd": sys.argv, "results": results}
+        print(json.dumps(out))
+    else:
+        await print_results(results)
 
 
 if __name__ == "__main__":
