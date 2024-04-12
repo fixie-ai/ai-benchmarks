@@ -1,7 +1,7 @@
-openai
-anthropic
-requests
-websockets
-aiohttp
-asyncio
-pyht
+requests==2.31.0
+websockets==12.0
+aiohttp==3.9.3
+pyht==0.0.27
+uvicorn
+fastapi
+
