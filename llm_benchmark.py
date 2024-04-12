@@ -225,7 +225,7 @@ def make_openai_messages(ctx: ApiContext):
     content: List[Dict[str, Any]] = [{"type": "text", "text": ctx.prompt}]
     for file in ctx.files:
         if not file.mime_type.startswith("image/"):
-            raise ValueError(f"Unsupported file type: {file}")
+            raise ValueError(f"Unsupported file type: {file.mime_type}")
         url = f"data:{file.mime_type};base64,{file.base64_data}"
         image_url = {"url": url}
         if ctx.detail:
@@ -295,7 +295,7 @@ def make_anthropic_messages(prompt: str, files: Optional[List[InputFile]] = None
     content: List[Dict[str, Any]] = [{"type": "text", "text": prompt}]
     for file in files:
         if not file.mime_type.startswith("image/"):
-            raise ValueError(f"Unsupported file type: {file}")
+            raise ValueError(f"Unsupported file type: {file.mime_type}")
         source = {
             "type": "base64",
             "media_type": file.mime_type,
@@ -399,8 +399,6 @@ def make_google_url_and_headers(ctx: ApiContext, method: str):
 def make_gemini_messages(prompt: str, files: List[InputFile]):
     parts: List[Dict[str, Any]] = [{"text": prompt}]
     for file in files:
-        if not file.mime_type.startswith("image/"):
-            raise ValueError(f"Unsupported file type: {file}")
         parts.append(
             {"inline_data": {"mime_type": file.mime_type, "data": file.base64_data}}
         )

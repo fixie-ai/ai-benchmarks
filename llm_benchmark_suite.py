@@ -11,12 +11,16 @@ DEFAULT_RESPONSE_LENGTH = 64
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--format", "-F", default="text", help="Output results in the specified format"
+    "--format",
+    "-F",
+    choices=["text", "json"],
+    default="text",
+    help="Output results in the specified format",
 )
 parser.add_argument(
     "--mode",
     "-m",
-    choices=["text", "vision"],
+    choices=["text", "image", "audio", "video"],
     default="text",
     help="Mode to run benchmarks for",
 )
@@ -200,7 +204,7 @@ def _text_models():
     ]
 
 
-def _vision_models():
+def _image_models():
     GCLOUD_ACCESS_TOKEN = os.popen("gcloud auth print-access-token").read().strip()
     return [
         _Llm("gpt-4-turbo"),
@@ -208,16 +212,27 @@ def _vision_models():
         _Llm("claude-3-opus-20240229"),
         _Llm("claude-3-sonnet-20240229"),
         _Llm("gemini-pro-vision", api_key=GCLOUD_ACCESS_TOKEN),
+        _Llm("gemini-1.5-pro-preview-0409", api_key=GCLOUD_ACCESS_TOKEN),
+    ]
+
+
+def _av_models():
+    GCLOUD_ACCESS_TOKEN = os.popen("gcloud auth print-access-token").read().strip()
+    return [
+        _Llm("gemini-1.5-pro-preview-0409", api_key=GCLOUD_ACCESS_TOKEN),
     ]
 
 
 def _get_models(mode: str, filter: Optional[str] = None):
-    if mode == "text":
-        models = _text_models()
-    elif mode == "vision":
-        models = _vision_models()
-    else:
+    mode_map = {
+        "text": _text_models,
+        "image": _image_models,
+        "audio": _av_models,
+        "video": _av_models,
+    }
+    if mode not in mode_map:
         raise ValueError(f"Unknown mode {mode}")
+    models = mode_map[mode]()
     return [m for m in models if not filter or filter in m.args["model"]]
 
 

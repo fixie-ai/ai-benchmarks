@@ -2,6 +2,7 @@ requests==2.31.0
 websockets==12.0
 aiohttp==3.9.3
 pyht==0.0.27
+gunicorn==21.2.0
 uvicorn
 fastapi
 
