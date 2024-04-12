@@ -68,7 +68,6 @@ class _Llm:
 def _text_models():
     AZURE_EASTUS2_OPENAI_API_KEY = os.getenv("AZURE_EASTUS2_OPENAI_API_KEY")
     FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY")
-    GCLOUD_ACCESS_TOKEN = os.popen("gcloud auth print-access-token").read().strip()
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     OCTOML_API_KEY = os.getenv("OCTOML_API_KEY")
     PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
@@ -118,8 +117,8 @@ def _text_models():
         _Llm("command-r-plus"),
         _Llm("command-r"),
         _Llm("command-light"),
-        _Llm("gemini-pro", api_key=GCLOUD_ACCESS_TOKEN),
-        _Llm("gemini-1.5-pro-preview-0409", api_key=GCLOUD_ACCESS_TOKEN),
+        _Llm("gemini-pro"),
+        _Llm("gemini-1.5-pro-preview-0409"),
         _Llm(
             "",
             api_key=os.getenv("AZURE_EASTUS2_MISTRAL_API_KEY"),
@@ -205,21 +204,19 @@ def _text_models():
 
 
 def _image_models():
-    GCLOUD_ACCESS_TOKEN = os.popen("gcloud auth print-access-token").read().strip()
     return [
         _Llm("gpt-4-turbo"),
         _Llm("gpt-4-vision-preview", base_url="https://fixie-westus.openai.azure.com"),
         _Llm("claude-3-opus-20240229"),
         _Llm("claude-3-sonnet-20240229"),
-        _Llm("gemini-pro-vision", api_key=GCLOUD_ACCESS_TOKEN),
-        _Llm("gemini-1.5-pro-preview-0409", api_key=GCLOUD_ACCESS_TOKEN),
+        _Llm("gemini-pro-vision"),
+        _Llm("gemini-1.5-pro-preview-0409"),
     ]
 
 
 def _av_models():
-    GCLOUD_ACCESS_TOKEN = os.popen("gcloud auth print-access-token").read().strip()
     return [
-        _Llm("gemini-1.5-pro-preview-0409", api_key=GCLOUD_ACCESS_TOKEN),
+        _Llm("gemini-1.5-pro-preview-0409"),
     ]
 
 
