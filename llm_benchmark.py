@@ -102,7 +102,6 @@ parser.add_argument(
     type=str,
     default=FMT_DEFAULT,
 )
-parser.add_argument("--filter")
 
 
 @dataclasses.dataclass
@@ -235,21 +234,17 @@ def make_openai_messages(ctx: ApiContext):
     return [{"role": "user", "content": content}]
 
 
-def make_openai_chat_body(
-    ctx: ApiContext,
-    prompt: Optional[str] = None,
-    messages: Optional[List[Dict]] = None,
-):
+def make_openai_chat_body(ctx: ApiContext, **kwargs):
+    # Models differ in how they want to receive the prompt, so
+    # we let the caller specify the key and format.
     body = {
         "model": ctx.model,
         "max_tokens": ctx.max_tokens,
         "temperature": ctx.temperature,
         "stream": True,
     }
-    if prompt:
-        body["prompt"] = prompt
-    elif messages:
-        body["messages"] = messages
+    for key, value in kwargs.items():
+        body[key] = value
     return body
 
 
@@ -354,7 +349,7 @@ async def cohere_chat(ctx: ApiContext) -> ApiResult:
 
     url = "https://api.cohere.ai/v1/chat"
     headers = make_headers(auth_token=get_api_key(ctx, "COHERE_API_KEY"))
-    data = {"message": ctx.prompt, "model": ctx.model, "stream": True}
+    data = make_openai_chat_body(ctx, message=ctx.prompt)
     return await post(ctx, url, headers, data, chunk_gen)
 
 
@@ -561,8 +556,6 @@ async def make_api_call(
 async def main(args: argparse.Namespace):
     if not args.model and not args.base_url:
         print("Either MODEL or BASE_URL must be specified")
-        return None
-    if args.filter and args.filter not in args.model:
         return None
 
     files = [InputFile.from_file(file) for file in args.file or []]
