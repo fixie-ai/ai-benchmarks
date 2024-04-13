@@ -1,13 +1,16 @@
 import argparse
 import asyncio
+import dataclasses
 import datetime
 import json
 import os
 from typing import Any, Dict, List, Optional, Tuple
+import gcloud.aio.storage as gcs
 
 import llm_benchmark
 
-DEFAULT_RESPONSE_LENGTH = 64
+DEFAULT_DISPLAY_LENGTH = 64
+DEFAULT_GCS_BUCKET = "thefastest-data"
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -30,11 +33,16 @@ parser.add_argument(
     help="Filter models by name",
 )
 parser.add_argument(
-    "--response-length",
+    "--display-length",
     "-l",
     type=int,
-    default=DEFAULT_RESPONSE_LENGTH,
-    help="Amount of the response to show",
+    default=DEFAULT_DISPLAY_LENGTH,
+    help="Amount of the generation response to display",
+)
+parser.add_argument(
+    "--store",
+    action="store_true",
+    help="Store the results in the configured GCP bucket",
 )
 
 
@@ -233,49 +241,52 @@ def _get_models(mode: str, filter: Optional[str] = None):
     return [m for m in models if not filter or filter in m.args["model"]]
 
 
-def _format_response(
-    format: str,
-    response_length: int,
-    start_time: datetime.datetime,
-    region: str,
-    argv: List[str],
-    results: List[Dict[str, Any]],
-) -> Tuple[str, str]:
-    time_str = start_time.isoformat()
-    cmd = " ".join(argv)
+@dataclasses.dataclass
+class _Response:
+    time: str
+    region: str
+    cmd: str
+    results: List[Dict[str, Any]]
+
+
+def _format_response(response: _Response, format: str, dlen: int) -> Tuple[str, str]:
     if format == "json":
-        obj = {
-            "time": time_str,
-            "region": region,
-            "cmd": cmd,
-            "results": results,
-        }
-        return json.dumps(obj, indent=2), "application/json"
+        return json.dumps(vars(response), indent=2), "application/json"
     else:
         s = (
             "| Provider/Model                             | TTR  | TTFT | TPS | Tok | Total |"
-            f" {'Response':{response_length}.{response_length}} |\n"
+            f" {'Response':{dlen}.{dlen}} |\n"
             "| :----------------------------------------- | ---: | ---: | --: | --: | ----: |"
-            f" {':--':-<{response_length}.{response_length}} |\n"
+            f" {':--':-<{dlen}.{dlen}} |\n"
         )
 
-        for r in results:
+        for r in response.results:
             output = r["output"].replace("\n", "\\n").strip()
             s += (
                 f"| {r['model']:42} | {r['ttr']:4.2f} | {r['ttft']:4.2f} | "
                 f"{r['tps']:3.0f} | {r['num_tokens']:3} | {r['total_time']:5.2f} | "
-                f"{output:{response_length}.{response_length}} |\n"
+                f"{output:{dlen}.{dlen}} |\n"
             )
 
-        s += f"\ntime: {time_str}, region: {region}, cmd: {cmd}\n"
+        s += (
+            f"\ntime: {response.time}, region: {response.region}, cmd: {response.cmd}\n"
+        )
         return s, "text/markdown"
 
 
+async def _store_response(gcp_bucket: str, key: str, text: str, content_type: str):
+    print(f"Storing results in {gcp_bucket}/{key}")
+    storage = gcs.Storage(service_file="service_account.json")
+    await storage.upload(gcp_bucket, key, text, content_type=content_type)
+    await storage.close()
+
+
 async def run(
-    mode: Optional[str] = "text",
-    format: Optional[str] = "text",
-    response_length: Optional[int] = DEFAULT_RESPONSE_LENGTH,
+    mode: str = "text",
+    format: str = "text",
+    display_length: Optional[int] = DEFAULT_DISPLAY_LENGTH,
     filter: Optional[str] = None,
+    store: bool = False,
     pass_argv: Optional[List[str]] = None,
     **kwargs,
 ):
@@ -286,22 +297,27 @@ async def run(
     We'll give both to the _Llm.run function, which will turn them back into a
     single list of flags for consumption by the llm_benchmark.run function.
     """
+    time_str = datetime.datetime.now().isoformat()
+    region = os.getenv("FLY_REGION", "local")
+    argv = _dict_to_argv(kwargs) + (pass_argv or [])
     models = _get_models(mode, filter)
     tasks = []
-    start_time = datetime.datetime.now()
     for m in models:
         m.apply(pass_argv or [], **kwargs)
         tasks.append(m.run())
     await asyncio.gather(*tasks)
     results = [t.result() for t in tasks if t.result() is not None]
-    region = os.getenv("FLY_REGION", "local")
-    argv = _dict_to_argv(kwargs) + (pass_argv or [])
-    return _format_response(format, response_length, start_time, region, argv, results)
+    response = _Response(time_str, region, " ".join(argv), results)
+    if store:
+        path = f"{region}/{mode}/{time_str.split('T')[0]}.json"
+        json, content_type = _format_response(response, "json", display_length)
+        await _store_response(DEFAULT_GCS_BUCKET, path, json, content_type)
+    return _format_response(response, format, display_length)
 
 
 async def main(args: argparse.Namespace, pass_argv: List[str]):
     text, _ = await run(
-        args.mode, args.format, args.response_length, args.filter, pass_argv
+        args.mode, args.format, args.display_length, args.filter, args.store, pass_argv
     )
     print(text)
 
