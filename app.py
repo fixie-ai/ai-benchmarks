@@ -7,7 +7,9 @@ app = fastapi.FastAPI()
 
 @app.get("/")
 async def root():
-    return fastapi.RedirectResponse(url="https://thefastest.ai")
+    return fastapi.Response(
+        status_code=302, headers={"location": "https://thefastest.ai"}
+    )
 
 
 @app.route("/bench", methods=["GET", "POST"])
