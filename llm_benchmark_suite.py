@@ -207,7 +207,6 @@ def _text_models():
         _Llm("togethercomputer/llama-2-7b-chat"),
         _Llm("@cf/meta/llama-2-7b-chat-fp16"),
         _Llm("@cf/meta/llama-2-7b-chat-int8"),
-        _Llm("Neets-7B"),
     ]
 
 

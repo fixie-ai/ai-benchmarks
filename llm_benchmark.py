@@ -125,9 +125,11 @@ class InputFile:
 
 @dataclasses.dataclass
 class ApiContext:
-    def __init__(self, session, index, args, prompt, files):
+    def __init__(self, session, index, name, func, args, prompt, files):
         self.session = session
         self.index = index
+        self.name = name
+        self.func = func
         self.model = args.model
         self.prompt = prompt
         self.files = files
@@ -139,6 +141,8 @@ class ApiContext:
 
     session: aiohttp.ClientSession
     index: int
+    name: str
+    func: Callable
     model: str
     prompt: str
     files: List[InputFile]
@@ -147,6 +151,9 @@ class ApiContext:
     detail: Optional[str] = None
     api_key: Optional[str] = None
     base_url: Optional[str] = None
+
+    async def run(self):
+        return await self.func(self)
 
 
 @dataclasses.dataclass
@@ -392,7 +399,10 @@ def make_google_url_and_headers(ctx: ApiContext, method: str):
     region = "us-west1"
     project_id = os.environ["GCP_PROJECT"]
     url = f"https://{region}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{region}/publishers/google/models/{ctx.model}:{method}"
-    headers = make_headers(auth_token=get_api_key(ctx, "GOOGLE_VERTEXAI_API_KEY"))
+    api_key = ctx.api_key
+    if not api_key:
+        api_key = os.popen("gcloud auth print-access-token").read().strip()
+    headers = make_headers(auth_token=api_key)
     return url, headers
 
 
@@ -426,38 +436,29 @@ async def gemini_chat(ctx: ApiContext) -> ApiResult:
     # The Google AI Gemini API (URL below) doesn't return the number of generated tokens.
     # Instead we use the Google Cloud Vertex AI Gemini API, which does return the number of tokens, but requires an Oauth credential.
     # Also, setting safetySettings to BLOCK_NONE is not supported in the Vertex AI Gemini API, at least for now.
-    if ctx.api_key or os.environ.get("GOOGLE_VERTEXAI_API_KEY"):
+    if True:
         url, headers = make_google_url_and_headers(ctx, "streamGenerateContent")
     else:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{ctx.model}:streamGenerateContent?key={get_api_key(ctx, 'GOOGLE_GEMINI_API_KEY')}"
         headers = make_headers()
-    # harm_categories = [
-    #    "HARM_CATEGORY_HARASSMENT",
-    #    "HARM_CATEGORY_HATE_SPEECH",
-    #    "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-    #    "HARM_CATEGORY_DANGEROUS_CONTENT",
-    # ]
+    harm_categories = [
+        "HARM_CATEGORY_HARASSMENT",
+        "HARM_CATEGORY_HATE_SPEECH",
+        "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "HARM_CATEGORY_DANGEROUS_CONTENT",
+    ]
     data = {
         "contents": make_gemini_messages(ctx.prompt, ctx.files),
         "generationConfig": {
             "temperature": ctx.temperature,
             "maxOutputTokens": ctx.max_tokens,
         },
-        # "safetySettings": [
-        #    {"category": category, "threshold": "BLOCK_NONE"}
-        #    for category in harm_categories
-        # ],
+        "safetySettings": [
+            {"category": category, "threshold": "BLOCK_NONE"}
+            for category in harm_categories
+        ],
     }
     return await post(ctx, url, headers, data, chunk_gen)
-
-
-async def neets_chat(ctx: ApiContext) -> ApiResult:
-    """Make a Neets chat completion request. The protocol is similar to OpenAI's,
-    but the authorization header is X-Api-Key instead of Authorization."""
-    url = "https://api.neets.ai/v1/chat/completions"
-    headers = make_headers(x_api_key=get_api_key(ctx, "NEETS_API_KEY"))
-    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx))
-    return await post(ctx, url, headers, data, openai_chunk_gen)
 
 
 async def together_chat(ctx: ApiContext) -> ApiResult:
@@ -518,40 +519,87 @@ async def fixie_chat(ctx: ApiContext) -> ApiResult:
     return await post(ctx, url, headers, data, make_fixie_chunk_gen)
 
 
-async def make_api_call(
+def make_display_name(provider_or_url: str, model: str) -> str:
+    # Clean up the base URL to get a nicer provider name.
+    if provider_or_url.startswith("https://"):
+        provider = (
+            provider_or_url[8:]
+            .split("/")[0]
+            .replace("openai-sub-with-gpt4", "eastus2")
+            .replace("fixie-", "")
+            .replace("-serverless", "")
+            .replace("openai.azure.com", "azure")
+            .replace("inference.ai.azure.com", "azure")
+            .replace("api.", "")
+            .replace("text.", "")  # octoai
+        )
+        provider = re.sub(r"(\w+)\.azure", r"azure.\1", provider)
+    else:
+        provider = provider_or_url
+    model_segments = model.split("/")
+    if provider:
+        # We already have a provider, so just need to add the model name.
+        # If we've got a model name, add the end of the split to the provider.
+        # Otherwise, we have model.domain.com, so we need to swap to domain.com/model.
+        if model:
+            name = provider + "/" + model_segments[-1]
+        else:
+            domain_segments = provider.split(".")
+            name = ".".join(domain_segments[1:]) + "/" + domain_segments[0]
+    elif len(model_segments) > 1:
+        # We've got a provider/model string, from which we need to get the provider and model.
+        provider = (
+            model_segments[0]
+            .replace("togethercomputer", "together.ai")
+            .replace("@cf", "cloudflare")
+        )
+        name = provider + "/" + model_segments[-1]
+    return name
+
+
+def make_context(
     session: aiohttp.ClientSession,
     index: int,
     args: argparse.Namespace,
     prompt: Optional[str] = None,
     files: Optional[List[InputFile]] = None,
-) -> ApiResult:
+) -> ApiContext:
     model = args.model
     prefix = re.split("-|/", model)[0]
-    ctx = ApiContext(session, index, args, prompt or "", files or [])
+    provider = args.base_url
     match (prefix):
         case "claude":
-            return await anthropic_chat(ctx)
+            provider = "anthropic"
+            func = anthropic_chat
         case "command":
-            return await cohere_chat(ctx)
+            provider = "cohere"
+            func = cohere_chat
         case "@cf":
-            return await cloudflare_chat(ctx)
+            provider = "cloudflare"
+            func = cloudflare_chat
         case "gemini":
-            return await gemini_chat(ctx)
-        case "Neets":
-            return await neets_chat(ctx)
+            provider = "google"
+            func = gemini_chat
         case "togethercomputer":
-            return await together_chat(ctx)
+            provider = "together.ai"
+            func = together_chat
         case "text-embedding-ada":
-            return await openai_embed(ctx)
+            provider = "openai"
+            func = openai_embed
         case "embed":
-            return await cohere_embed(ctx)
+            provider = "cohere"
+            func = cohere_embed
         case _ if args.base_url or model.startswith("gpt-") or model.startswith(
             "ft:gpt-"
         ):
-            return await openai_chat(ctx)
+            if not args.base_url:
+                provider = "openai"
+            func = openai_chat
         # case _ elif "/" in model return await fixie_chat(ctx)
         case _:
             raise ValueError(f"Unknown model: {model}")
+    name = make_display_name(provider, model)
+    return ApiContext(session, index, name, func, args, prompt or "", files or [])
 
 
 async def main(args: argparse.Namespace):
@@ -561,31 +609,21 @@ async def main(args: argparse.Namespace):
 
     files = [InputFile.from_file(file) for file in args.file or []]
     async with aiohttp.ClientSession() as session:
+        ctx = make_context(session, -1, args)
         if args.warmup:
             # Do a warmup call to make sure the connection is ready,
             # and sleep it off to make sure it doesn't affect rate limits.
             if args.verbose:
                 print("Making a warmup API call...")
-            await make_api_call(session, -1, args)
+            await ctx.run()
             await asyncio.sleep(1.0)
 
-        fq_model = ""
-        if args.base_url:
-            base_url = args.base_url[8:].split("/")[0]
-            base_url = base_url.replace("fixie-openai-sub-with-gpt4", "fixie-eastus2")
-            base_url = base_url.replace("-serverless", "")
-            base_url = base_url.replace("openai.azure.com", "azure")
-            fq_model += base_url.replace("inference.ai.azure.com", "azure")
-        if fq_model:
-            if args.model:
-                last_slash = args.model.rfind("/")
-                fq_model += "/" + args.model[last_slash + 1 :]
-        else:
-            fq_model += args.model
         if args.format == FMT_DEFAULT:
-            print(f"Racing {args.num_requests} API calls to {fq_model}...")
+            print(f"Racing {args.num_requests} API calls to {ctx.name}...")
         tasks = [
-            asyncio.create_task(make_api_call(session, i, args, args.prompt, files))
+            asyncio.create_task(
+                make_context(session, i, args, args.prompt, files).run()
+            )
             for i in range(args.num_requests)
         ]
         results = []
@@ -610,7 +648,7 @@ async def main(args: argparse.Namespace):
 
         # Bail out if no tasks succeed
         if not chosen:
-            print(f"No successful API calls for {fq_model}")
+            print(f"No successful API calls for {ctx.name}")
             return None
 
         if args.format == FMT_DEFAULT:
@@ -666,10 +704,10 @@ async def main(args: argparse.Namespace):
         total_time = end_time - chosen.start_time
     else:
         ttft = tps = total_time = 0.0
-        print(f"{fq_model}: no tokens received")
+        print(f"{ctx.name}: no tokens received")
 
     metrics = {
-        "model": fq_model,
+        "model": ctx.name,
         "ttr": chosen.latency,
         "ttft": ttft,
         "tps": tps,
@@ -688,7 +726,7 @@ async def main(args: argparse.Namespace):
     elif args.format == "minimal":
         minimal_output = output.replace("\n", "\\n").strip()[:64]
         print(
-            f"| {fq_model:42} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | {minimal_output} |"
+            f"| {ctx.name:42} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | {minimal_output} |"
         )
     elif args.format == "json":
         print(json.dumps(metrics))
