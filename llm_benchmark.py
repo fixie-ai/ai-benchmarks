@@ -461,21 +461,6 @@ async def gemini_chat(ctx: ApiContext) -> ApiResult:
     return await post(ctx, url, headers, data, chunk_gen)
 
 
-async def together_chat(ctx: ApiContext) -> ApiResult:
-    """Make a Together chat completion request. The protocol is similar to OpenAI's,
-    but the URL doesn't follow the same scheme and the response structure is slightly different.
-    """
-
-    async def chunk_gen(response) -> TokenGenerator:
-        async for chunk in make_sse_chunk_gen(response):
-            yield chunk["choices"][0].get("text", "")
-
-    url = "https://api.together.xyz/inference"
-    headers = make_headers(auth_token=get_api_key(ctx, "TOGETHER_API_KEY"))
-    data = make_openai_chat_body(ctx, prompt=ctx.prompt)
-    return await post(ctx, url, headers, data, chunk_gen)
-
-
 async def cohere_embed(ctx: ApiContext) -> ApiResult:
     url = "https://api.cohere.ai/v1/embed"
     headers = make_headers(auth_token=get_api_key(ctx, "COHERE_API_KEY"))
@@ -580,9 +565,6 @@ def make_context(
         case "gemini":
             provider = "google"
             func = gemini_chat
-        case "togethercomputer":
-            provider = "together.ai"
-            func = together_chat
         case "text-embedding-ada":
             provider = "openai"
             func = openai_embed
