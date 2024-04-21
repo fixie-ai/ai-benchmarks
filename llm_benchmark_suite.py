@@ -73,12 +73,54 @@ class _Llm:
         return asyncio.create_task(llm_benchmark.run(full_argv))
 
 
+class _FireworksLlm(_Llm):
+    def __init__(self, model):
+        super().__init__(
+            model,
+            api_key=os.getenv("FIREWORKS_API_KEY"),
+            base_url="https://api.fireworks.ai/inference/v1",
+        )
+
+
+class _GroqLlm(_Llm):
+    def __init__(self, model):
+        super().__init__(
+            model,
+            api_key=os.getenv("GROQ_API_KEY"),
+            base_url="https://api.groq.com/openai/v1",
+        )
+
+
+class _OctoLlm(_Llm):
+    def __init__(self, model):
+        super().__init__(
+            model,
+            api_key=os.getenv("OCTOML_API_KEY"),
+            base_url="https://text.octoai.run/v1",
+        )
+
+
+class _PerplexityLlm(_Llm):
+    def __init__(self, model):
+        super().__init__(
+            model,
+            api_key=os.getenv("PERPLEXITY_API_KEY"),
+            base_url="https://api.perplexity.ai",
+        )
+
+
+class _TogetherLlm(_Llm):
+    def __init__(self, model):
+        super().__init__(
+            model,
+            api_key=os.getenv("TOGETHER_API_KEY"),
+            base_url="https://api.together.xyz/v1",
+        )
+
+
+# TODO: anyscale, mosaic
 def _text_models():
     AZURE_EASTUS2_OPENAI_API_KEY = os.getenv("AZURE_EASTUS2_OPENAI_API_KEY")
-    FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY")
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-    OCTOML_API_KEY = os.getenv("OCTOML_API_KEY")
-    PERPLEXITY_API_KEY = os.getenv("PERPLEXITY_API_KEY")
     return [
         _Llm("gpt-4-turbo"),
         _Llm("gpt-4-0125-preview"),
@@ -132,26 +174,11 @@ def _text_models():
             api_key=os.getenv("AZURE_EASTUS2_MISTRAL_API_KEY"),
             base_url="https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1",
         ),
-        _Llm(
-            "accounts/fireworks/models/mixtral-8x7b-instruct",
-            api_key=os.getenv("FIREWORKS_API_KEY"),
-            base_url="https://api.fireworks.ai/inference/v1",
-        ),
-        _Llm(
-            "mixtral-8x7b-32768",
-            api_key=GROQ_API_KEY,
-            base_url="https://api.groq.com/openai/v1",
-        ),
-        _Llm(
-            "mixtral-8x7b-instruct",
-            api_key=OCTOML_API_KEY,
-            base_url="https://text.octoai.run/v1",
-        ),
-        _Llm(
-            "sonar-medium-chat",
-            api_key=PERPLEXITY_API_KEY,
-            base_url="https://api.perplexity.ai",
-        ),
+        _FireworksLlm("accounts/fireworks/models/mixtral-8x7b-instruct"),
+        _GroqLlm("mixtral-8x7b-32768"),
+        _OctoLlm("mixtral-8x7b-instruct"),
+        _PerplexityLlm("mixtral-8x7b-instruct"),
+        _PerplexityLlm("sonar-medium-chat"),
         _Llm(
             "",
             api_key=os.getenv("AZURE_WESTUS3_LLAMA2_API_KEY"),
@@ -162,49 +189,23 @@ def _text_models():
             api_key=os.getenv("AZURE_EASTUS2_LLAMA2_API_KEY"),
             base_url="https://fixie-llama-2-70b-serverless.eastus2.inference.ai.azure.com/v1",
         ),
-        _Llm(
-            "accounts/fireworks/models/llama-v2-70b-chat",
-            api_key=FIREWORKS_API_KEY,
-            base_url="https://api.fireworks.ai/inference/v1",
-        ),
-        _Llm(
-            "llama2-70b-4096",
-            api_key=GROQ_API_KEY,
-            base_url="https://api.groq.com/openai/v1",
-        ),
-        _Llm(
-            "llama-2-70b-chat-fp16",
-            api_key=OCTOML_API_KEY,
-            base_url="https://text.octoai.run/v1",
-        ),
-        _Llm(
-            "pplx-70b-chat",
-            api_key=PERPLEXITY_API_KEY,
-            base_url="https://api.perplexity.ai",
-        ),
-        _Llm("togethercomputer/llama-2-70b-chat"),
-        _Llm(
-            "accounts/fireworks/models/llama-v2-13b-chat",
-            api_key=FIREWORKS_API_KEY,
-            base_url="https://api.fireworks.ai/inference/v1",
-        ),
-        _Llm(
-            "llama-2-13b-chat-fp16",
-            api_key=OCTOML_API_KEY,
-            base_url="https://text.octoai.run/v1",
-        ),
-        _Llm("togethercomputer/llama-2-13b-chat"),
-        _Llm(
-            "accounts/fireworks/models/llama-v2-7b-chat",
-            api_key=FIREWORKS_API_KEY,
-            base_url="https://api.fireworks.ai/inference/v1",
-        ),
-        _Llm(
-            "pplx-7b-chat",
-            api_key=PERPLEXITY_API_KEY,
-            base_url="https://api.perplexity.ai",
-        ),
-        _Llm("togethercomputer/llama-2-7b-chat"),
+        _FireworksLlm("accounts/fireworks/models/llama-v3-70b-instruct"),
+        _GroqLlm("llama3-70b-8192"),
+        _PerplexityLlm("llama-3-70b-instruct"),
+        _TogetherLlm("meta-llama/Llama-3-70b-chat-hf"),
+        _FireworksLlm("accounts/fireworks/models/llama-v2-70b-chat"),
+        _GroqLlm("llama2-70b-4096"),
+        _OctoLlm("llama-2-70b-chat-fp16"),
+        _TogetherLlm("togethercomputer/llama-2-70b-chat"),
+        _FireworksLlm("accounts/fireworks/models/llama-v2-13b-chat"),
+        _TogetherLlm("togethercomputer/llama-2-13b-chat"),
+        _OctoLlm("llama-2-13b-chat-fp16"),
+        _FireworksLlm("accounts/fireworks/models/llama-v3-8b-instruct"),
+        _GroqLlm("llama3-8b-8192"),
+        _PerplexityLlm("llama-3-8b-instruct"),
+        _TogetherLlm("meta-llama/Llama-3-8b-chat-hf"),
+        _FireworksLlm("accounts/fireworks/models/llama-v2-7b-chat"),
+        _TogetherLlm("togethercomputer/llama-2-7b-chat"),
         _Llm("@cf/meta/llama-2-7b-chat-fp16"),
         _Llm("@cf/meta/llama-2-7b-chat-int8"),
     ]
