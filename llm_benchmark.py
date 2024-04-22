@@ -50,6 +50,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--max-tokens",
+    "-T",
     type=int,
     default=DEFAULT_MAX_TOKENS,
     help="Max tokens for the response",
@@ -517,6 +518,7 @@ def make_display_name(provider_or_url: str, model: str) -> str:
             .replace("inference.ai.azure.com", "azure")
             .replace("api.", "")
             .replace("text.", "")  # octoai
+            .replace("endpoints.", "")  # anyscale
         )
         provider = re.sub(r"(\w+)\.azure", r"azure.\1", provider)
     else:
