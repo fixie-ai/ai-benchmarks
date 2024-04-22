@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "ai-benchmarks"
+version = "0.1.0"
+description = "AI API benchmarking suite"
+authors = ["juberti <justin@fixie.ai>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "2.31.0"
+websockets = "12.0"
+aiohttp = "3.9.3"
+pyht = "0.0.27"
+gcloud-aio-storage = "^9.3.0"
+gunicorn = "21.2.0"
+uvicorn = "^0.29.0"
+fastapi = "^0.110.2"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.4.0"
+isort = "^5.13.2"
+autoflake = "^2.3.1"
+mypy = "^1.9.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

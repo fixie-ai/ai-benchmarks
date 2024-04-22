@@ -73,6 +73,15 @@ class _Llm:
         return asyncio.create_task(llm_benchmark.run(full_argv))
 
 
+class _AnyscaleLlm(_Llm):
+    def __init__(self, model):
+        super().__init__(
+            model,
+            api_key=os.getenv("ANYSCALE_API_KEY"),
+            base_url="https://api.endpoints.anyscale.com/v1",
+        )
+
+
 class _FireworksLlm(_Llm):
     def __init__(self, model):
         super().__init__(
@@ -118,10 +127,11 @@ class _TogetherLlm(_Llm):
         )
 
 
-# TODO: anyscale, mosaic
+# TODO: mosaic
 def _text_models():
     AZURE_EASTUS2_OPENAI_API_KEY = os.getenv("AZURE_EASTUS2_OPENAI_API_KEY")
     return [
+        # GPT-4
         _Llm("gpt-4-turbo"),
         _Llm("gpt-4-0125-preview"),
         _Llm(
@@ -151,6 +161,7 @@ def _text_models():
             api_key=os.getenv("AZURE_UKSOUTH_OPENAI_API_KEY"),
             base_url="https://fixie-uksouth.openai.azure.com",
         ),
+        # GPT-3.5
         _Llm("gpt-3.5-turbo-0125"),
         _Llm("gpt-3.5-turbo-1106"),
         _Llm("gpt-3.5-turbo-1106", base_url="https://fixie-westus.openai.azure.com"),
@@ -159,26 +170,38 @@ def _text_models():
             api_key=AZURE_EASTUS2_OPENAI_API_KEY,
             base_url="https://fixie-openai-sub-with-gpt4.openai.azure.com",
         ),
+        # Claude
         _Llm("claude-3-opus-20240229"),
         _Llm("claude-3-sonnet-20240229"),
         _Llm("claude-3-haiku-20240307"),
         _Llm("claude-2.1"),
         _Llm("claude-instant-1.2"),
+        # Cohere
         _Llm("command-r-plus"),
         _Llm("command-r"),
         _Llm("command-light"),
+        # Gemini
         _Llm("gemini-pro"),
         _Llm("gemini-1.5-pro-preview-0409"),
+        # Mistral
         _Llm(
             "",
             api_key=os.getenv("AZURE_EASTUS2_MISTRAL_API_KEY"),
             base_url="https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1",
         ),
+        _AnyscaleLlm("mistralai/Mixtral-8x7B-Instruct-v0.1"),
         _FireworksLlm("accounts/fireworks/models/mixtral-8x7b-instruct"),
         _GroqLlm("mixtral-8x7b-32768"),
         _OctoLlm("mixtral-8x7b-instruct"),
         _PerplexityLlm("mixtral-8x7b-instruct"),
         _PerplexityLlm("sonar-medium-chat"),
+        # Llama 3 70b
+        _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf"),
+        _FireworksLlm("accounts/fireworks/models/llama-v3-70b-instruct"),
+        _GroqLlm("llama3-70b-8192"),
+        _PerplexityLlm("llama-3-70b-instruct"),
+        _TogetherLlm("meta-llama/Llama-3-70b-chat-hf"),
+        # Llama 2 70b
         _Llm(
             "",
             api_key=os.getenv("AZURE_WESTUS3_LLAMA2_API_KEY"),
@@ -189,21 +212,24 @@ def _text_models():
             api_key=os.getenv("AZURE_EASTUS2_LLAMA2_API_KEY"),
             base_url="https://fixie-llama-2-70b-serverless.eastus2.inference.ai.azure.com/v1",
         ),
-        _FireworksLlm("accounts/fireworks/models/llama-v3-70b-instruct"),
-        _GroqLlm("llama3-70b-8192"),
-        _PerplexityLlm("llama-3-70b-instruct"),
-        _TogetherLlm("meta-llama/Llama-3-70b-chat-hf"),
+        _AnyscaleLlm("meta-llama/Llama-2-70b-chat-hf"),
         _FireworksLlm("accounts/fireworks/models/llama-v2-70b-chat"),
         _GroqLlm("llama2-70b-4096"),
         _OctoLlm("llama-2-70b-chat-fp16"),
         _TogetherLlm("togethercomputer/llama-2-70b-chat"),
         _FireworksLlm("accounts/fireworks/models/llama-v2-13b-chat"),
+        # Llama 2 13b
+        _AnyscaleLlm("meta-llama/Llama-2-13b-chat-hf"),
         _TogetherLlm("togethercomputer/llama-2-13b-chat"),
         _OctoLlm("llama-2-13b-chat-fp16"),
+        # Llama 3 8b
+        _AnyscaleLlm("meta-llama/Llama-3-8b-chat-hf"),
         _FireworksLlm("accounts/fireworks/models/llama-v3-8b-instruct"),
         _GroqLlm("llama3-8b-8192"),
         _PerplexityLlm("llama-3-8b-instruct"),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf"),
+        # Llama 2 7b
+        _AnyscaleLlm("meta-llama/Llama-2-7b-chat-hf"),
         _FireworksLlm("accounts/fireworks/models/llama-v2-7b-chat"),
         _TogetherLlm("togethercomputer/llama-2-7b-chat"),
         _Llm("@cf/meta/llama-2-7b-chat-fp16"),

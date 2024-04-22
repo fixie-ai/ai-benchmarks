@@ -3,10 +3,12 @@
 This repo contains a handful of utilities for benchmarking the response latency of popular AI services, including:
 
 Large Language Models (LLMs):
+
 - OpenAI GPT-3.5, GPT-4 (from OpenAI or Azure OpenAI service)
 - Anthropic Claude 3, Claude 2, Claude Instant
 - Google Gemini Pro and PaLM 2 Bison
-- Llama2 7B/70B from several different providers, including
+- Llama2 and 3 from several different providers, including
+  - Anyscale
   - Azure
   - Cloudflare
   - Groq
@@ -14,25 +16,29 @@ Large Language Models (LLMs):
   - Perplexity
   - Together
 - Mixtral 8x7B from several different providers, including
+  - Anyscale
   - Azure
   - Groq
   - OctoAI
   - Perplexity
 
 Embedding Models:
+
 - Ada-002
 - Cohere
 
 Text-to-Speech Models (TTS):
+
 - ElevenLabs
 - PlayHT
 
-
 ## Leaderboard
+
 Snapshot below, click it to jump to the latest spreadsheet.
 [![Screenshot 2024-03-05 at 4 08 20 PM](https://github.com/fixie-ai/ai-benchmarks/assets/1821693/97651011-fc8e-4481-bac9-cba0927aa485)](https://docs.google.com/spreadsheets/d/e/2PACX-1vTPttBIJ676Ke5eKXh8EoOe9XrMZ1kgVh-hvuO-LP41GTNIbsHwx1bcb_SsoB3BTDZLNeMspqLQMXSS/pubhtml?gid=0&single=true)
 
 ### Test methodology
+
 - Tests are run from a Google Cloud console in us-west1.
 - Input requests are short, typically a single message (~20 tokens), and typically ask for a brief output response.
 - Max output tokens is set to 100, to avoid distortion of TPS values from long outputs.
@@ -43,34 +49,37 @@ Snapshot below, click it to jump to the latest spreadsheet.
 
 ## Initial setup
 
+This repo uses [Poetry](https://python-poetry.org/) for dependency management. To install the dependencies, run:
+
 ```
-pip install -r requirements.txt
+pip install poetry
+poetry install --sync
 ```
 
 ## Running benchmarks
 
-To run a benchmark, first set the appropriate environment variable (e.g., OPENAI_API_KEY, ELEVEN_API_KEY) etc, and then run 
+To run a benchmark, first set the appropriate environment variable (e.g., OPENAI_API_KEY, ELEVEN_API_KEY) etc, and then run
 the appropriate benchmark script.
 
 ### LLM benchmarks
 
-To generate LLM benchmarks, use the `llm_benchmark.py` script. For most providers, you can just pass the model name and the script will figure out what API endpoint to invoke. e.g., 
+To generate LLM benchmarks, use the `llm_benchmark.py` script. For most providers, you can just pass the model name and the script will figure out what API endpoint to invoke. e.g.,
 
 ```
-python llm_benchmark.py -m gpt-3.5-turbo "Write me a haiku."
+poetry run python llm_benchmark.py -m gpt-3.5-turbo "Write me a haiku."
 ```
 
-However, when invoking generic models like Llama2, you'll need to pass in the base_url and api_key via the -b and -k parameters, e.g., 
+However, when invoking generic models like Llama2, you'll need to pass in the base_url and api_key via the -b and -k parameters, e.g.,
 
 ```
-python llm_benchmark.py -k $OCTOML_API_KEY -b https://text.octoai.run/v1 \
+poetry run python llm_benchmark.py -k $OCTOML_API_KEY -b https://text.octoai.run/v1 \
        -m llama-2-70b-chat-fp16 "Write me a haiku."
 ```
 
-Similarly, when invoking Azure OpenAI, you'll need to specify your Azure API key and the base URL of your Azure deployment, e.g., 
+Similarly, when invoking Azure OpenAI, you'll need to specify your Azure API key and the base URL of your Azure deployment, e.g.,
 
 ```
-python llm_benchmark.py -b https://fixie-westus.openai.azure.com \
+poetry run python llm_benchmark.py -b https://fixie-westus.openai.azure.com \
        -m gpt-4-1106-preview "Write me a haiku."
 ```
 
@@ -89,12 +98,12 @@ positional arguments:
 optional arguments:
   -h, --help                                   show this help message and exit
   --model MODEL, -m MODEL                      Model to benchmark
-  --temperature TEMPERATURE, -t TEMPERATURE    Temperature for the response                        
-  --max-tokens MAX_TOKENS                      Max tokens for the response                        
-  --base-url BASE_URL, -b BASE_URL             Base URL for the LLM API endpoint                        
-  --api-key API_KEY, -k API_KEY                API key for the LLM API endpoint                        
+  --temperature TEMPERATURE, -t TEMPERATURE    Temperature for the response
+  --max-tokens, -T MAX_TOKEN                   Max tokens for the response
+  --base-url BASE_URL, -b BASE_URL             Base URL for the LLM API endpoint
+  --api-key API_KEY, -k API_KEY                API key for the LLM API endpoint
   --no-warmup                                  Don't do a warmup call to the API
-  --num-requests NUM_REQUESTS, -n NUM_REQUESTS Number of requests to make                    
+  --num-requests NUM_REQUESTS, -n NUM_REQUESTS Number of requests to make
   --print, -p                                  Print the response
   --verbose, -v                                Print verbose output
 ```
@@ -132,7 +141,7 @@ First, install `mpv` via
 brew install mpv
 ```
 
-Then, just pass the -p argument when generating text, e.g., 
+Then, just pass the -p argument when generating text, e.g.,
 
 ```
 python playht_benchmark.py -p "Well, basically I have intuition."
