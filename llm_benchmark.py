@@ -396,13 +396,26 @@ async def make_json_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
     yield json.loads(buf[:-1])
 
 
+def get_google_access_token():
+    from google.oauth2 import service_account
+    from google.auth.transport import requests
+
+    creds = service_account.Credentials.from_service_account_file(
+        "service_account.json",
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+    if not creds.token:
+        creds.refresh(requests.Request())
+    return creds.token
+
+
 def make_google_url_and_headers(ctx: ApiContext, method: str):
     region = "us-west1"
     project_id = os.environ["GCP_PROJECT"]
     url = f"https://{region}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{region}/publishers/google/models/{ctx.model}:{method}"
     api_key = ctx.api_key
     if not api_key:
-        api_key = os.popen("gcloud auth print-access-token").read().strip()
+        api_key = get_google_access_token()
     headers = make_headers(auth_token=api_key)
     return url, headers
 
