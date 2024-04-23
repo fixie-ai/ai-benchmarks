@@ -82,6 +82,15 @@ class _AnyscaleLlm(_Llm):
         )
 
 
+class _DatabricksLlm(_Llm):
+    def __init__(self, model):
+        super().__init__(
+            model,
+            api_key=os.getenv("DATABRICKS_API_KEY"),
+            base_url="https://api.databricks.com/v1",
+        )
+
+
 class _FireworksLlm(_Llm):
     def __init__(self, model):
         super().__init__(
