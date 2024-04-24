@@ -401,8 +401,8 @@ async def make_json_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
 
 
 def get_google_access_token():
-    from google.oauth2 import service_account
     from google.auth.transport import requests
+    from google.oauth2 import service_account
 
     creds = service_account.Credentials.from_service_account_file(
         "service_account.json",
