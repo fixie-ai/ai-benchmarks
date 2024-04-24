@@ -282,8 +282,8 @@ async def openai_chunk_gen(response) -> TokenGenerator:
                 yield ""
 
 
-async def openai_chat(ctx: ApiContext) -> ApiResult:
-    url, headers = make_openai_url_and_headers(ctx, "/chat/completions")
+async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiResult:
+    url, headers = make_openai_url_and_headers(ctx, path)
     data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx))
     return await post(ctx, url, headers, data, openai_chunk_gen)
 
@@ -377,6 +377,10 @@ async def cloudflare_chat(ctx: ApiContext) -> ApiResult:
     headers = make_headers(auth_token=get_api_key(ctx, "CF_API_KEY"))
     data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx))
     return await post(ctx, url, headers, data, chunk_gen)
+
+
+async def databricks_chat(ctx: ApiContext) -> ApiResult:
+    return await openai_chat(ctx, f"/{ctx.model}/invocations")
 
 
 async def make_json_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
@@ -527,13 +531,12 @@ def make_display_name(provider_or_url: str, model: str) -> str:
             .replace("openai-sub-with-gpt4", "eastus2")
             .replace("fixie-", "")
             .replace("-serverless", "")
-            .replace("openai.azure.com", "azure")
             .replace("inference.ai.azure.com", "azure")
-            .replace("api.", "")
-            .replace("text.", "")  # octoai
-            .replace("endpoints.", "")  # anyscale
+            .replace("openai.azure.com", "azure")
         )
-        provider = re.sub(r"(\w+)\.azure", r"azure.\1", provider)
+        # Get the last two segments of the domain, and swap foo.azure to azure.foo.
+        provider = ".".join(provider.split(".")[-2:])
+        provider = re.sub(r"(\w+)\.azure$", r"azure.\1", provider)
     else:
         provider = provider_or_url
     model_segments = model.split("/")
@@ -542,7 +545,8 @@ def make_display_name(provider_or_url: str, model: str) -> str:
         # If we've got a model name, add the end of the split to the provider.
         # Otherwise, we have model.domain.com, so we need to swap to domain.com/model.
         if model:
-            name = provider + "/" + model_segments[-1]
+            short_model = model_segments[-1].replace("databricks-", "")
+            name = provider + "/" + short_model
         else:
             domain_segments = provider.split(".")
             name = ".".join(domain_segments[1:]) + "/" + domain_segments[0]
@@ -589,9 +593,11 @@ def make_context(
         case _ if args.base_url or model.startswith("gpt-") or model.startswith(
             "ft:gpt-"
         ):
+            func = openai_chat
             if not args.base_url:
                 provider = "openai"
-            func = openai_chat
+            elif "databricks.net" in args.base_url:
+                func = databricks_chat
         # case _ elif "/" in model return await fixie_chat(ctx)
         case _:
             raise ValueError(f"Unknown model: {model}")

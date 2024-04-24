@@ -5,7 +5,6 @@ import logging
 import os
 import subprocess
 import time
-from typing import Optional
 
 import aiohttp
 from pyht import client
