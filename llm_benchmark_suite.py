@@ -86,8 +86,8 @@ class _DatabricksLlm(_Llm):
     def __init__(self, model):
         super().__init__(
             model,
-            api_key=os.getenv("DATABRICKS_API_KEY"),
-            base_url="https://api.databricks.com/v1",
+            api_key=os.getenv("DATABRICKS_TOKEN"),
+            base_url="https://adb-1558081827343359.19.azuredatabricks.net/serving-endpoints",
         )
 
 
@@ -199,6 +199,7 @@ def _text_models():
             base_url="https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1",
         ),
         _AnyscaleLlm("mistralai/Mixtral-8x7B-Instruct-v0.1"),
+        _DatabricksLlm("databricks-mixtral-8x7b-instruct"),
         _FireworksLlm("accounts/fireworks/models/mixtral-8x7b-instruct"),
         _GroqLlm("mixtral-8x7b-32768"),
         _OctoLlm("mixtral-8x7b-instruct"),
@@ -212,16 +213,17 @@ def _text_models():
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf"),
         # Llama 2 70b
         _Llm(
-            "",
+            "llama-2-70b-chat",
             api_key=os.getenv("AZURE_WESTUS3_LLAMA2_API_KEY"),
             base_url="https://fixie-llama-2-70b-serverless.westus3.inference.ai.azure.com/v1",
         ),
         _Llm(
-            "",
+            "llama-2-70b-chat",
             api_key=os.getenv("AZURE_EASTUS2_LLAMA2_API_KEY"),
             base_url="https://fixie-llama-2-70b-serverless.eastus2.inference.ai.azure.com/v1",
         ),
         _AnyscaleLlm("meta-llama/Llama-2-70b-chat-hf"),
+        _DatabricksLlm("databricks-llama-2-70b-chat"),
         _FireworksLlm("accounts/fireworks/models/llama-v2-70b-chat"),
         _GroqLlm("llama2-70b-4096"),
         _OctoLlm("llama-2-70b-chat-fp16"),
@@ -239,6 +241,7 @@ def _text_models():
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf"),
         # Llama 2 7b
         _AnyscaleLlm("meta-llama/Llama-2-7b-chat-hf"),
+        # _DatabricksLlm("fixie-llama-2-7b"),
         _FireworksLlm("accounts/fireworks/models/llama-v2-7b-chat"),
         _TogetherLlm("togethercomputer/llama-2-7b-chat"),
         _Llm("@cf/meta/llama-2-7b-chat-fp16"),
@@ -273,7 +276,7 @@ def _get_models(mode: str, filter: Optional[str] = None):
     if mode not in mode_map:
         raise ValueError(f"Unknown mode {mode}")
     models = mode_map[mode]()
-    return [m for m in models if not filter or filter in m.args["model"]]
+    return [m for m in models if not filter or filter in m.args["model"].lower()]
 
 
 @dataclasses.dataclass
