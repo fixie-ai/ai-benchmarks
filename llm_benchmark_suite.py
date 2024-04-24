@@ -12,6 +12,19 @@ import llm_benchmark
 
 DEFAULT_DISPLAY_LENGTH = 64
 DEFAULT_GCS_BUCKET = "thefastest-data"
+GPT_4_TURBO = "gpt-4-turbo"
+GPT_4_0125_PREVIEW = "gpt-4-0125-preview"
+GPT_4_1106_PREVIEW = "gpt-4-1106-preview"
+GPT_35_TURBO = "gpt-3.5-turbo"
+GPT_35_TURBO_0125 = "gpt-3.5-turbo-0125"
+GPT_35_TURBO_1106 = "gpt-3.5-turbo-1106"
+LLAMA_3_70B_CHAT = "llama-3-70b-chat"
+LLAMA_3_8B_CHAT = "llama-3-8b-chat"
+LLAMA_2_70B_CHAT = "llama-2-70b-chat"
+LLAMA_2_13B_CHAT = "llama-2-13b-chat"
+LLAMA_2_7B_CHAT = "llama-2-7b-chat"
+MIXTRAL_8X7B_INSTRUCT = "mixtral-8x7b-instruct"
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -47,8 +60,8 @@ parser.add_argument(
 )
 
 
-def _dict_to_argv(d: Dict[str, str]) -> List[str]:
-    return [f"--{k.replace('_', '-')}={v}" for k, v in d.items()]
+def _dict_to_argv(d: Dict[str, Any]) -> List[str]:
+    return [f"--{k.replace('_', '-')}={v}" for k, v in d.items() if v is not None]
 
 
 class _Llm:
@@ -60,9 +73,14 @@ class _Llm:
     from that script, rather than having to duplicate it here.
     """
 
-    def __init__(self, model, **kwargs):
+    def __init__(self, model: str, display_name: Optional[str] = None, **kwargs):
         self.pass_argv = []
-        self.args = {"model": model, **kwargs, "format": "none"}
+        self.args = {
+            "model": model,
+            "display_name": display_name,
+            "format": "none",
+            **kwargs,
+        }
 
     def apply(self, pass_argv: List[str], **kwargs):
         self.pass_argv = pass_argv
@@ -75,108 +93,122 @@ class _Llm:
 
 
 class _AnyscaleLlm(_Llm):
-    def __init__(self, model):
+    def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
+            "anyscale.com/" + (display_model or model),
             api_key=os.getenv("ANYSCALE_API_KEY"),
             base_url="https://api.endpoints.anyscale.com/v1",
         )
 
 
-class _DatabricksLlm(_Llm):
-    def __init__(self, model):
+class _CloudflareLlm(_Llm):
+    def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
+            "cloudflare.com/" + (display_model or model),
+        )
+
+
+class _DatabricksLlm(_Llm):
+    def __init__(self, model: str, display_model: Optional[str] = None):
+        super().__init__(
+            model,
+            "databricks.com/" + (display_model or model),
             api_key=os.getenv("DATABRICKS_TOKEN"),
             base_url="https://adb-1558081827343359.19.azuredatabricks.net/serving-endpoints",
         )
 
 
 class _FireworksLlm(_Llm):
-    def __init__(self, model):
+    def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
+            "fireworks.ai/" + (display_model or model),
             api_key=os.getenv("FIREWORKS_API_KEY"),
             base_url="https://api.fireworks.ai/inference/v1",
         )
 
 
 class _GroqLlm(_Llm):
-    def __init__(self, model):
+    def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
+            "groq.com/" + (display_model or model),
             api_key=os.getenv("GROQ_API_KEY"),
             base_url="https://api.groq.com/openai/v1",
         )
 
 
 class _OctoLlm(_Llm):
-    def __init__(self, model):
+    def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
+            "octo.ai/" + (display_model or model),
             api_key=os.getenv("OCTOML_API_KEY"),
             base_url="https://text.octoai.run/v1",
         )
 
 
 class _PerplexityLlm(_Llm):
-    def __init__(self, model):
+    def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
+            "perplexity.ai/" + (display_model or model),
             api_key=os.getenv("PERPLEXITY_API_KEY"),
             base_url="https://api.perplexity.ai",
         )
 
 
 class _TogetherLlm(_Llm):
-    def __init__(self, model):
+    def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
+            "together.ai/" + (display_model or model),
             api_key=os.getenv("TOGETHER_API_KEY"),
             base_url="https://api.together.xyz/v1",
         )
 
 
-# TODO: mosaic
 def _text_models():
     AZURE_EASTUS2_OPENAI_API_KEY = os.getenv("AZURE_EASTUS2_OPENAI_API_KEY")
     return [
         # GPT-4
-        _Llm("gpt-4-turbo"),
-        _Llm("gpt-4-0125-preview"),
+        _Llm(GPT_4_TURBO),
+        _Llm(GPT_4_0125_PREVIEW),
         _Llm(
-            "gpt-4-0125-preview",
+            GPT_4_0125_PREVIEW,
             api_key=os.getenv("AZURE_SCENTRALUS_OPENAI_API_KEY"),
             base_url="https://fixie-scentralus.openai.azure.com",
         ),
-        _Llm("gpt-4-1106-preview"),
-        _Llm("gpt-4-1106-preview", base_url="https://fixie-westus.openai.azure.com"),
+        _Llm(GPT_4_1106_PREVIEW),
+        _Llm(GPT_4_1106_PREVIEW, base_url="https://fixie-westus.openai.azure.com"),
         _Llm(
-            "gpt-4-1106-preview",
+            GPT_4_1106_PREVIEW,
             api_key=AZURE_EASTUS2_OPENAI_API_KEY,
             base_url="https://fixie-openai-sub-with-gpt4.openai.azure.com",
         ),
         _Llm(
-            "gpt-4-1106-preview",
+            GPT_4_1106_PREVIEW,
             api_key=os.getenv("AZURE_FRCENTRAL_OPENAI_API_KEY"),
             base_url="https://fixie-frcentral.openai.azure.com",
         ),
         _Llm(
-            "gpt-4-1106-preview",
+            GPT_4_1106_PREVIEW,
             api_key=os.getenv("AZURE_SECENTRAL_OPENAI_API_KEY"),
             base_url="https://fixie-secentral.openai.azure.com",
         ),
         _Llm(
-            "gpt-4-1106-preview",
+            GPT_4_1106_PREVIEW,
             api_key=os.getenv("AZURE_UKSOUTH_OPENAI_API_KEY"),
             base_url="https://fixie-uksouth.openai.azure.com",
         ),
         # GPT-3.5
-        _Llm("gpt-3.5-turbo-0125"),
-        _Llm("gpt-3.5-turbo-1106"),
-        _Llm("gpt-3.5-turbo-1106", base_url="https://fixie-westus.openai.azure.com"),
+        _Llm(GPT_35_TURBO_0125),
+        _Llm(GPT_35_TURBO_1106),
+        _Llm(GPT_35_TURBO_1106, base_url="https://fixie-westus.openai.azure.com"),
         _Llm(
-            "gpt-3.5-turbo",
+            GPT_35_TURBO,
             api_key=AZURE_EASTUS2_OPENAI_API_KEY,
             base_url="https://fixie-openai-sub-with-gpt4.openai.azure.com",
         ),
@@ -195,58 +227,64 @@ def _text_models():
         _Llm("gemini-1.5-pro-preview-0409"),
         # Mistral
         _Llm(
-            "",
+            "mistral-large",
             api_key=os.getenv("AZURE_EASTUS2_MISTRAL_API_KEY"),
             base_url="https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1",
         ),
-        _AnyscaleLlm("mistralai/Mixtral-8x7B-Instruct-v0.1"),
-        _DatabricksLlm("databricks-mixtral-8x7b-instruct"),
-        _FireworksLlm("accounts/fireworks/models/mixtral-8x7b-instruct"),
-        _GroqLlm("mixtral-8x7b-32768"),
-        _OctoLlm("mixtral-8x7b-instruct"),
-        _PerplexityLlm("mixtral-8x7b-instruct"),
+        _AnyscaleLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
+        _DatabricksLlm("databricks-mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
+        _FireworksLlm(
+            "accounts/fireworks/models/mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT
+        ),
+        _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT),
+        _OctoLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
+        _PerplexityLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _PerplexityLlm("sonar-medium-chat"),
         # Llama 3 70b
-        _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf"),
-        _FireworksLlm("accounts/fireworks/models/llama-v3-70b-instruct"),
-        _GroqLlm("llama3-70b-8192"),
-        _PerplexityLlm("llama-3-70b-instruct"),
-        _TogetherLlm("meta-llama/Llama-3-70b-chat-hf"),
+        _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
+        _FireworksLlm(
+            "accounts/fireworks/models/llama-v3-70b-instruct", LLAMA_3_70B_CHAT
+        ),
+        _GroqLlm("llama3-70b-8192", LLAMA_3_70B_CHAT),
+        _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
+        _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         # Llama 2 70b
         _Llm(
-            "llama-2-70b-chat",
+            LLAMA_2_70B_CHAT,
             api_key=os.getenv("AZURE_WESTUS3_LLAMA2_API_KEY"),
             base_url="https://fixie-llama-2-70b-serverless.westus3.inference.ai.azure.com/v1",
         ),
         _Llm(
-            "llama-2-70b-chat",
+            LLAMA_2_70B_CHAT,
             api_key=os.getenv("AZURE_EASTUS2_LLAMA2_API_KEY"),
             base_url="https://fixie-llama-2-70b-serverless.eastus2.inference.ai.azure.com/v1",
         ),
-        _AnyscaleLlm("meta-llama/Llama-2-70b-chat-hf"),
-        _DatabricksLlm("databricks-llama-2-70b-chat"),
-        _FireworksLlm("accounts/fireworks/models/llama-v2-70b-chat"),
-        _GroqLlm("llama2-70b-4096"),
-        _OctoLlm("llama-2-70b-chat-fp16"),
-        _TogetherLlm("togethercomputer/llama-2-70b-chat"),
-        _FireworksLlm("accounts/fireworks/models/llama-v2-13b-chat"),
+        _AnyscaleLlm("meta-llama/Llama-2-70b-chat-hf", LLAMA_2_70B_CHAT),
+        _DatabricksLlm("databricks-llama-2-70b-chat", LLAMA_2_70B_CHAT),
+        _FireworksLlm("accounts/fireworks/models/llama-v2-70b-chat", LLAMA_2_70B_CHAT),
+        _GroqLlm("llama2-70b-4096", LLAMA_2_70B_CHAT),
+        _OctoLlm("llama-2-70b-chat-fp16", LLAMA_2_70B_CHAT),
+        _TogetherLlm("togethercomputer/llama-2-70b-chat", LLAMA_2_70B_CHAT),
         # Llama 2 13b
-        _AnyscaleLlm("meta-llama/Llama-2-13b-chat-hf"),
-        _TogetherLlm("togethercomputer/llama-2-13b-chat"),
-        _OctoLlm("llama-2-13b-chat-fp16"),
+        _AnyscaleLlm("meta-llama/Llama-2-13b-chat-hf", LLAMA_2_13B_CHAT),
+        _FireworksLlm("accounts/fireworks/models/llama-v2-13b-chat", LLAMA_2_13B_CHAT),
+        _OctoLlm("llama-2-13b-chat-fp16", LLAMA_2_13B_CHAT),
+        _TogetherLlm("togethercomputer/llama-2-13b-chat", LLAMA_2_13B_CHAT),
         # Llama 3 8b
-        _AnyscaleLlm("meta-llama/Llama-3-8b-chat-hf"),
-        _FireworksLlm("accounts/fireworks/models/llama-v3-8b-instruct"),
-        _GroqLlm("llama3-8b-8192"),
-        _PerplexityLlm("llama-3-8b-instruct"),
-        _TogetherLlm("meta-llama/Llama-3-8b-chat-hf"),
+        _AnyscaleLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
+        _CloudflareLlm("@cf/meta/llama-3-8b-instruct", LLAMA_3_8B_CHAT),
+        _FireworksLlm(
+            "accounts/fireworks/models/llama-v3-8b-instruct", LLAMA_3_8B_CHAT
+        ),
+        _GroqLlm("llama3-8b-8192", LLAMA_3_8B_CHAT),
+        _PerplexityLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
+        _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         # Llama 2 7b
-        _AnyscaleLlm("meta-llama/Llama-2-7b-chat-hf"),
-        # _DatabricksLlm("fixie-llama-2-7b"),
-        _FireworksLlm("accounts/fireworks/models/llama-v2-7b-chat"),
-        _TogetherLlm("togethercomputer/llama-2-7b-chat"),
-        _Llm("@cf/meta/llama-2-7b-chat-fp16"),
-        _Llm("@cf/meta/llama-2-7b-chat-int8"),
+        _AnyscaleLlm("meta-llama/Llama-2-7b-chat-hf", LLAMA_2_7B_CHAT),
+        _CloudflareLlm("@cf/meta/llama-2-7b-chat-fp16", LLAMA_2_7B_CHAT),
+        # _DatabricksLlm("fixie-llama-2-7b", LLAMA_2_7B_CHAT),
+        _FireworksLlm("accounts/fireworks/models/llama-v2-7b-chat", LLAMA_2_7B_CHAT),
+        _TogetherLlm("togethercomputer/llama-2-7b-chat", LLAMA_2_7B_CHAT),
     ]
 
 
