@@ -24,6 +24,7 @@ LLAMA_2_70B_CHAT = "llama-2-70b-chat"
 LLAMA_2_13B_CHAT = "llama-2-13b-chat"
 LLAMA_2_7B_CHAT = "llama-2-7b-chat"
 MIXTRAL_8X7B_INSTRUCT = "mixtral-8x7b-instruct"
+PHI_2 = "phi-2"
 
 
 parser = argparse.ArgumentParser()
@@ -285,6 +286,8 @@ def _text_models():
         # _DatabricksLlm("fixie-llama-2-7b", LLAMA_2_7B_CHAT),
         _FireworksLlm("accounts/fireworks/models/llama-v2-7b-chat", LLAMA_2_7B_CHAT),
         _TogetherLlm("togethercomputer/llama-2-7b-chat", LLAMA_2_7B_CHAT),
+        # Phi-2
+        _CloudflareLlm("@cf/microsoft/phi-2", PHI_2),
     ]
 
 
