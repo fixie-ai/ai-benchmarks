@@ -307,6 +307,7 @@ def _text_models():
         _TogetherLlm("togethercomputer/llama-2-7b-chat", LLAMA_2_7B_CHAT),
         # Phi-2
         _CloudflareLlm("@cf/microsoft/phi-2", PHI_2),
+        _TogetherLlm("microsoft/phi-2", PHI_2),
     ]
 
 
