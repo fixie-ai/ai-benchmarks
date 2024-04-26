@@ -94,6 +94,8 @@ class _Llm:
 
 
 class _AnyscaleLlm(_Llm):
+    """See https://docs.endpoints.anyscale.com/text-generation/query-a-model"""
+
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
@@ -104,6 +106,8 @@ class _AnyscaleLlm(_Llm):
 
 
 class _CloudflareLlm(_Llm):
+    """See https://developers.cloudflare.com/workers-ai/models/"""
+
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
@@ -112,6 +116,8 @@ class _CloudflareLlm(_Llm):
 
 
 class _DatabricksLlm(_Llm):
+    """See https://docs.databricks.com/en/machine-learning/foundation-models/supported-models.html"""
+
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
@@ -122,6 +128,8 @@ class _DatabricksLlm(_Llm):
 
 
 class _FireworksLlm(_Llm):
+    """See https://fireworks.ai/models"""
+
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
@@ -132,6 +140,8 @@ class _FireworksLlm(_Llm):
 
 
 class _GroqLlm(_Llm):
+    """See https://console.groq.com/docs/models"""
+
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
@@ -142,6 +152,8 @@ class _GroqLlm(_Llm):
 
 
 class _OctoLlm(_Llm):
+    """See https://octo.ai/docs/getting-started/inference-models#serverless-endpoints"""
+
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
@@ -152,6 +164,8 @@ class _OctoLlm(_Llm):
 
 
 class _PerplexityLlm(_Llm):
+    """See https://docs.perplexity.ai/docs/model-cards"""
+
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
@@ -162,6 +176,8 @@ class _PerplexityLlm(_Llm):
 
 
 class _TogetherLlm(_Llm):
+    """See https://docs.together.ai/docs/inference-models"""
+
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
@@ -243,10 +259,12 @@ def _text_models():
         _PerplexityLlm("sonar-medium-chat"),
         # Llama 3 70b
         _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
+        _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _FireworksLlm(
             "accounts/fireworks/models/llama-v3-70b-instruct", LLAMA_3_70B_CHAT
         ),
         _GroqLlm("llama3-70b-8192", LLAMA_3_70B_CHAT),
+        _OctoLlm("meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         # Llama 2 70b
@@ -278,6 +296,7 @@ def _text_models():
             "accounts/fireworks/models/llama-v3-8b-instruct", LLAMA_3_8B_CHAT
         ),
         _GroqLlm("llama3-8b-8192", LLAMA_3_8B_CHAT),
+        _OctoLlm("meta-llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _PerplexityLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         # Llama 2 7b
