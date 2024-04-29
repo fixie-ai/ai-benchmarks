@@ -319,6 +319,7 @@ def _image_models():
         _Llm("claude-3-sonnet-20240229"),
         _Llm("gemini-pro-vision"),
         _Llm("gemini-1.5-pro-preview-0409"),
+        _FireworksLlm("accounts/fireworks/models/firellava-13b", "firellava-13b"),
     ]
 
 
