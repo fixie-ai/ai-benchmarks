@@ -4,6 +4,7 @@ import dataclasses
 import datetime
 import json
 import os
+import random
 from typing import Any, Dict, List, Optional, Tuple
 
 import gcloud.aio.storage as gcs
@@ -48,6 +49,13 @@ parser.add_argument(
     help="Filter models by name",
 )
 parser.add_argument(
+    "--spread",
+    "-s",
+    type=float,
+    default=0.0,
+    help="Spread the requests out over the specified time in seconds",
+)
+parser.add_argument(
     "--display-length",
     "-l",
     type=int,
@@ -88,9 +96,11 @@ class _Llm:
         self.args.update(kwargs)
         return self
 
-    def run(self):
+    async def run(self, spread: float) -> asyncio.Task:
+        if spread:
+            await asyncio.sleep(spread)
         full_argv = _dict_to_argv(self.args) + self.pass_argv
-        return asyncio.create_task(llm_benchmark.run(full_argv))
+        return await llm_benchmark.run(full_argv)
 
 
 class _AnyscaleLlm(_Llm):
@@ -345,6 +355,7 @@ def _get_models(mode: str, filter: Optional[str] = None):
 @dataclasses.dataclass
 class _Response:
     time: str
+    duration: str
     region: str
     cmd: str
     results: List[Dict[str, Any]]
@@ -369,9 +380,7 @@ def _format_response(response: _Response, format: str, dlen: int) -> Tuple[str, 
                 f"{output:{dlen}.{dlen}} |\n"
             )
 
-        s += (
-            f"\ntime: {response.time}, region: {response.region}, cmd: {response.cmd}\n"
-        )
+        s += f"\ntime: {response.time}, duration: {response.duration} region: {response.region}, cmd: {response.cmd}\n"
         return s, "text/markdown"
 
 
@@ -387,6 +396,7 @@ async def run(
     format: str = "text",
     display_length: Optional[int] = DEFAULT_DISPLAY_LENGTH,
     filter: Optional[str] = None,
+    spread: Optional[float] = None,
     store: bool = False,
     pass_argv: Optional[List[str]] = None,
     **kwargs,
@@ -398,17 +408,21 @@ async def run(
     We'll give both to the _Llm.run function, which will turn them back into a
     single list of flags for consumption by the llm_benchmark.run function.
     """
-    time_str = datetime.datetime.now().isoformat()
+    time_start = datetime.datetime.now()
+    time_str = time_start.isoformat()
     region = os.getenv("FLY_REGION", "local")
     argv = _dict_to_argv(kwargs) + (pass_argv or [])
     models = _get_models(mode, filter)
     tasks = []
     for m in models:
         m.apply(pass_argv or [], **kwargs)
-        tasks.append(m.run())
+        delay = random.uniform(0, spread)
+        tasks.append(asyncio.create_task(m.run(delay)))
     await asyncio.gather(*tasks)
     results = [t.result() for t in tasks if t.result() is not None]
-    response = _Response(time_str, region, " ".join(argv), results)
+    elapsed = datetime.datetime.now() - time_start
+    elapsed_str = f"{elapsed.total_seconds():.2f}s"
+    response = _Response(time_str, elapsed_str, region, " ".join(argv), results)
     if store:
         path = f"{region}/{mode}/{time_str.split('T')[0]}.json"
         json, content_type = _format_response(response, "json", display_length)
@@ -418,7 +432,13 @@ async def run(
 
 async def main(args: argparse.Namespace, pass_argv: List[str]):
     text, _ = await run(
-        args.mode, args.format, args.display_length, args.filter, args.store, pass_argv
+        args.mode,
+        args.format,
+        args.display_length,
+        args.filter,
+        args.spread,
+        args.store,
+        pass_argv,
     )
     print(text)
 
