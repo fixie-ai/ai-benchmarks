@@ -713,6 +713,7 @@ async def main(args: argparse.Namespace):
     med_index2 = len(results) // 2
     median_latency = (results[med_index1].latency + results[med_index2].latency) / 2
     if num_tokens > 0:
+        assert first_token_time
         ttft = first_token_time - chosen.start_time
         tps = min((num_tokens - 1) / (end_time - first_token_time), 999)
         total_time = end_time - chosen.start_time
