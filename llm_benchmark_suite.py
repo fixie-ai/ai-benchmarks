@@ -5,6 +5,7 @@ import datetime
 import json
 import os
 import random
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 import gcloud.aio.storage as gcs
@@ -83,7 +84,6 @@ class _Llm:
     """
 
     def __init__(self, model: str, display_name: Optional[str] = None, **kwargs):
-        self.pass_argv = []
         self.args = {
             "model": model,
             "display_name": display_name,
@@ -91,15 +91,10 @@ class _Llm:
             **kwargs,
         }
 
-    def apply(self, pass_argv: List[str], **kwargs):
-        self.pass_argv = pass_argv
-        self.args.update(kwargs)
-        return self
-
-    async def run(self, spread: float) -> asyncio.Task:
+    async def run(self, pass_argv: List[str], spread: float) -> asyncio.Task:
         if spread:
             await asyncio.sleep(spread)
-        full_argv = _dict_to_argv(self.args) + self.pass_argv
+        full_argv = _dict_to_argv(self.args) + pass_argv
         return await llm_benchmark.run(full_argv)
 
 
@@ -361,7 +356,9 @@ class _Response:
     results: List[Dict[str, Any]]
 
 
-def _format_response(response: _Response, format: str, dlen: int) -> Tuple[str, str]:
+def _format_response(
+    response: _Response, format: str, dlen: int = 0
+) -> Tuple[str, str]:
     if format == "json":
         return json.dumps(vars(response), indent=2), "application/json"
     else:
@@ -391,58 +388,43 @@ async def _store_response(gcp_bucket: str, key: str, text: str, content_type: st
     await storage.close()
 
 
-async def run(
-    mode: str = "text",
-    format: str = "text",
-    display_length: Optional[int] = DEFAULT_DISPLAY_LENGTH,
-    filter: Optional[str] = None,
-    spread: Optional[float] = None,
-    store: bool = False,
-    pass_argv: Optional[List[str]] = None,
-    **kwargs,
-):
+async def _run(argv: List[str]) -> Tuple[str, str]:
     """
-    This function is invoked either from the webapp or the main function below.
-    When invoked from the webapp, the arguments are passed as kwargs.
-    When invoked from the main function, the arguments are passed as a list of flags.
-    We'll give both to the _Llm.run function, which will turn them back into a
+    This function is invoked either from the webapp (via run) or the main function below.
+    The args we know about are stored in args, and any unknown args are stored in pass_argv,
+    which we'll pass to the _Llm.run function, who will turn them back into a
     single list of flags for consumption by the llm_benchmark.run function.
     """
     time_start = datetime.datetime.now()
     time_str = time_start.isoformat()
     region = os.getenv("FLY_REGION", "local")
-    argv = _dict_to_argv(kwargs) + (pass_argv or [])
-    models = _get_models(mode, filter)
+    cmd = " ".join(argv)
+    args, pass_argv = parser.parse_known_args(argv)
+    models = _get_models(args.mode, args.filter)
     tasks = []
     for m in models:
-        m.apply(pass_argv or [], **kwargs)
-        delay = random.uniform(0, spread)
-        tasks.append(asyncio.create_task(m.run(delay)))
+        delay = random.uniform(0, args.spread)
+        tasks.append(asyncio.create_task(m.run(pass_argv, delay)))
     await asyncio.gather(*tasks)
     results = [t.result() for t in tasks if t.result() is not None]
     elapsed = datetime.datetime.now() - time_start
     elapsed_str = f"{elapsed.total_seconds():.2f}s"
-    response = _Response(time_str, elapsed_str, region, " ".join(argv), results)
-    if store:
-        path = f"{region}/{mode}/{time_str.split('T')[0]}.json"
-        json, content_type = _format_response(response, "json", display_length)
+    response = _Response(time_str, elapsed_str, region, cmd, results)
+    if args.store:
+        path = f"{region}/{args.mode}/{time_str.split('T')[0]}.json"
+        json, content_type = _format_response(response, "json")
         await _store_response(DEFAULT_GCS_BUCKET, path, json, content_type)
-    return _format_response(response, format, display_length)
+    return _format_response(response, args.format, args.display_length)
 
 
-async def main(args: argparse.Namespace, pass_argv: List[str]):
-    text, _ = await run(
-        args.mode,
-        args.format,
-        args.display_length,
-        args.filter,
-        args.spread,
-        args.store,
-        pass_argv,
-    )
+async def run(params: Dict[str, Any]) -> Tuple[str, str]:
+    return await _run(_dict_to_argv(params))
+
+
+async def main():
+    text, _ = await _run(sys.argv[1:])
     print(text)
 
 
 if __name__ == "__main__":
-    args, unk_args = parser.parse_known_args()
-    asyncio.run(main(args, unk_args))
+    asyncio.run(main())
