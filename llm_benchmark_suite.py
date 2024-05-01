@@ -71,7 +71,7 @@ parser.add_argument(
 
 
 def _dict_to_argv(d: Dict[str, Any]) -> List[str]:
-    return [f"--{k.replace('_', '-')}={v}" for k, v in d.items() if v is not None]
+    return [f"--{k.replace('_', '-')}" + (f"={v}" if v else "") for k, v in d.items()]
 
 
 class _Llm:
