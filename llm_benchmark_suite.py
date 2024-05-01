@@ -71,7 +71,10 @@ parser.add_argument(
 
 
 def _dict_to_argv(d: Dict[str, Any]) -> List[str]:
-    return [f"--{k.replace('_', '-')}" + (f"={v}" if v else "") for k, v in d.items()]
+    return [
+        f"--{k.replace('_', '-')}" + (f"={v}" if v or v == 0 else "")
+        for k, v in d.items()
+    ]
 
 
 class _Llm:
@@ -86,10 +89,11 @@ class _Llm:
     def __init__(self, model: str, display_name: Optional[str] = None, **kwargs):
         self.args = {
             "model": model,
-            "display_name": display_name,
             "format": "none",
             **kwargs,
         }
+        if display_name:
+            self.args["display_name"] = display_name
 
     async def run(self, pass_argv: List[str], spread: float) -> asyncio.Task:
         if spread:
