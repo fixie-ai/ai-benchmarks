@@ -29,11 +29,11 @@ deploy *FLAGS:
 server:
     just python app.py
 
-curl:
-    curl -X POST "https://ai-benchmarks.fly.dev/bench?max_tokens=20" -H fly-prefer-region:sea
+curl *FLAGS:
+    curl -X POST "https://ai-benchmarks.fly.dev/bench?max_tokens=20&{{FLAGS}}" -H fly-prefer-region:sea
 
-curl_local:
-    curl -X POST "http://localhost:8000/bench?max_tokens=20"
+curl_local *FLAGS:
+    curl -X POST "http://localhost:8000/bench?max_tokens=20&{{FLAGS}}"
 
 test *FLAGS:
     poetry run pytest {{FLAGS}}
