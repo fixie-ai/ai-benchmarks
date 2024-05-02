@@ -26,6 +26,15 @@ check:
 deploy *FLAGS:
     flyctl deploy {{FLAGS}}
 
+server:
+    just python app.py
+
+curl *FLAGS:
+    curl -X POST "https://ai-benchmarks.fly.dev/bench?max_tokens=20&{{FLAGS}}" -H fly-prefer-region:sea
+
+curl_local *FLAGS:
+    curl -X POST "http://localhost:8000/bench?max_tokens=20&{{FLAGS}}"
+
 test *FLAGS:
     poetry run pytest {{FLAGS}}
 

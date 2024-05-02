@@ -40,7 +40,19 @@ parser.add_argument(
     action="append",
     help="Multimedia file(s) to include with the prompt",
 )
-parser.add_argument("--model", "-m", type=str, default="", help="Model to benchmark")
+parser.add_argument(
+    "--model",
+    "-m",
+    type=str,
+    default="",
+    help="Model to benchmark",
+)
+parser.add_argument(
+    "--display-name",
+    "-N",
+    type=str,
+    help="Display name for the model",
+)
 parser.add_argument(
     "--temperature",
     "-t",
@@ -55,7 +67,11 @@ parser.add_argument(
     default=DEFAULT_MAX_TOKENS,
     help="Max tokens for the response",
 )
-parser.add_argument("--detail", "-d", help="Image detail level to use, low or high")
+parser.add_argument(
+    "--detail",
+    "-d",
+    help="Image detail level to use, low or high",
+)
 parser.add_argument(
     "--base-url",
     "-b",
@@ -396,13 +412,26 @@ async def make_json_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
     yield json.loads(buf[:-1])
 
 
+def get_google_access_token():
+    from google.auth.transport import requests
+    from google.oauth2 import service_account
+
+    creds = service_account.Credentials.from_service_account_file(
+        "service_account.json",
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+    if not creds.token:
+        creds.refresh(requests.Request())
+    return creds.token
+
+
 def make_google_url_and_headers(ctx: ApiContext, method: str):
     region = "us-west1"
     project_id = os.environ["GCP_PROJECT"]
     url = f"https://{region}-aiplatform.googleapis.com/v1/projects/{project_id}/locations/{region}/publishers/google/models/{ctx.model}:{method}"
     api_key = ctx.api_key
     if not api_key:
-        api_key = os.popen("gcloud auth print-access-token").read().strip()
+        api_key = get_google_access_token()
     headers = make_headers(auth_token=api_key)
     return url, headers
 
@@ -528,18 +557,13 @@ def make_display_name(provider_or_url: str, model: str) -> str:
         # If we've got a model name, add the end of the split to the provider.
         # Otherwise, we have model.domain.com, so we need to swap to domain.com/model.
         if model:
-            short_model = model_segments[-1].replace("databricks-", "")
-            name = provider + "/" + short_model
+            name = provider + "/" + model_segments[-1]
         else:
             domain_segments = provider.split(".")
             name = ".".join(domain_segments[1:]) + "/" + domain_segments[0]
     elif len(model_segments) > 1:
         # We've got a provider/model string, from which we need to get the provider and model.
-        provider = (
-            model_segments[0]
-            .replace("togethercomputer", "together.ai")
-            .replace("@cf", "cloudflare")
-        )
+        provider = model_segments[0]
         name = provider + "/" + model_segments[-1]
     return name
 
@@ -582,7 +606,7 @@ def make_context(
         # case _ elif "/" in model return await fixie_chat(ctx)
         case _:
             raise ValueError(f"Unknown model: {model}")
-    name = make_display_name(provider, model)
+    name = args.display_name or make_display_name(provider, model)
     return ApiContext(session, index, name, func, args, prompt or "", files or [])
 
 
@@ -683,6 +707,7 @@ async def main(args: argparse.Namespace):
     med_index2 = len(results) // 2
     median_latency = (results[med_index1].latency + results[med_index2].latency) / 2
     if num_tokens > 0:
+        assert first_token_time
         ttft = first_token_time - chosen.start_time
         tps = min((num_tokens - 1) / (end_time - first_token_time), 999)
         total_time = end_time - chosen.start_time

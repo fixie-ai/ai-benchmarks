@@ -16,6 +16,7 @@ gcloud-aio-storage = "^9.3.0"
 gunicorn = "21.2.0"
 uvicorn = "^0.29.0"
 fastapi = "^0.110.2"
+google-auth = "^2.29.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -27,3 +28,7 @@ mypy = "^1.9.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"
+single_line_exclusions = ["typing", "collections.abc", "typing_extensions"]

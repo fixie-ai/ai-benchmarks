@@ -14,7 +14,7 @@ async def root():
 
 @app.route("/bench", methods=["GET", "POST"])
 async def bench(req: fastapi.Request):
-    text, content_type = await llm_benchmark_suite.run(**req.query_params)
+    text, content_type = await llm_benchmark_suite.run(req.query_params)
     return fastapi.Response(content=text, media_type=content_type)
 
 
