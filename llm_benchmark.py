@@ -395,10 +395,6 @@ async def cloudflare_chat(ctx: ApiContext) -> ApiResult:
     return await post(ctx, url, headers, data, chunk_gen)
 
 
-async def databricks_chat(ctx: ApiContext) -> ApiResult:
-    return await openai_chat(ctx, f"/{ctx.model}/invocations")
-
-
 async def make_json_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
     """Hacky parser for the JSON streaming format used by Google Vertex AI."""
     buf = ""
@@ -607,8 +603,6 @@ def make_context(
             func = openai_chat
             if not args.base_url:
                 provider = "openai"
-            elif "databricks.net" in args.base_url:
-                func = databricks_chat
         # case _ elif "/" in model return await fixie_chat(ctx)
         case _:
             raise ValueError(f"Unknown model: {model}")
