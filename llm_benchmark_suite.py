@@ -41,7 +41,7 @@ parser.add_argument(
 parser.add_argument(
     "--mode",
     "-m",
-    choices=["text", "text-2k", "image", "audio", "video"],
+    choices=["text", "image", "audio", "video"],
     default="text",
     help="Mode to run benchmarks for",
 )
@@ -263,7 +263,7 @@ def _text_models():
             "accounts/fireworks/models/mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT
         ),
         _OctoLlm("mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT),
-        # _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT), super slow
+        _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         # Mistral 8x7b
         _AnyscaleLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _DatabricksLlm("databricks-mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
@@ -350,7 +350,6 @@ def _av_models():
 def _get_models(mode: str, filter: Optional[str] = None):
     mode_map = {
         "text": _text_models,
-        "text-2k": _text_models,
         "image": _image_models,
         "audio": _av_models,
         "video": _av_models,
@@ -364,13 +363,6 @@ def _get_models(mode: str, filter: Optional[str] = None):
 def _get_prompt(mode: str) -> List[str]:
     if mode == "text":
         return ["Write a nonet about a sunset."]
-    elif mode == "text-4k":
-        return [
-            "Find the needle in the haystack. Give your answer as a single word."
-            + " hay" * 1000
-            + " Seattle"
-            + " hay" * 700,
-        ]
     elif mode == "image":
         return [
             "Based on the image, explain what will happen next.",
