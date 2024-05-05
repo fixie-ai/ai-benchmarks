@@ -119,6 +119,12 @@ parser.add_argument(
     type=str,
     default=FMT_DEFAULT,
 )
+parser.add_argument(
+    "--timeout",
+    type=float,
+    default=30.0,
+    help="Timeout for the API call",
+)
 
 
 @dataclasses.dataclass
@@ -610,6 +616,10 @@ def make_context(
     return ApiContext(session, index, name, func, args, prompt or "", files or [])
 
 
+def make_timeout(start_time: float, timeout: float) -> float:
+    return max(0.0, start_time + timeout - time.time())
+
+
 async def main(args: argparse.Namespace):
     if not args.model and not args.base_url:
         print("Either MODEL or BASE_URL must be specified")
@@ -635,11 +645,20 @@ async def main(args: argparse.Namespace):
             for i in range(args.num_requests)
         ]
         results = []
+        start_time = time.time()
 
         # Wait for the first task to complete successfully
         chosen = None
         while tasks and not chosen:
-            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            done, _ = await asyncio.wait(
+                tasks,
+                return_when=asyncio.FIRST_COMPLETED,
+                timeout=make_timeout(start_time, args.timeout),
+            )
+            if not done:
+                print(f"Timeout waiting for API calls for {ctx.name}")
+                break
+
             task = done.pop()
             result = task.result()
             results.append(result)
@@ -680,7 +699,12 @@ async def main(args: argparse.Namespace):
 
         # Wait for the rest of the tasks to complete and clean up
         if tasks:
-            done, _ = await asyncio.wait(tasks)
+            done, _ = await asyncio.wait(
+                tasks,
+                timeout=make_timeout(
+                    start_time, make_timeout(start_time, args.timeout)
+                ),
+            )
             results += [task.result() for task in done]
             for result in results:
                 await result.response.release()
