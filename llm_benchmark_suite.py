@@ -263,7 +263,7 @@ def _text_models():
             "accounts/fireworks/models/mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT
         ),
         _OctoLlm("mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT),
-        # _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT), super slow
+        _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         # Mistral 8x7b
         _AnyscaleLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _DatabricksLlm("databricks-mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
@@ -360,6 +360,17 @@ def _get_models(mode: str, filter: Optional[str] = None):
     return [m for m in models if not filter or filter in m.args["model"].lower()]
 
 
+def _get_prompt(mode: str) -> List[str]:
+    if mode == "text":
+        return ["Write a nonet about a sunset."]
+    elif mode == "image":
+        return [
+            "Based on the image, explain what will happen next.",
+            "--file",
+            "media/image/inception.jpeg",
+        ]
+
+
 @dataclasses.dataclass
 class _Response:
     time: str
@@ -413,6 +424,7 @@ async def _run(argv: List[str]) -> Tuple[str, str]:
     region = os.getenv("FLY_REGION", "local")
     cmd = " ".join(argv)
     args, pass_argv = parser.parse_known_args(argv)
+    pass_argv += _get_prompt(args.mode)
     models = _get_models(args.mode, args.filter)
     tasks = []
     for m in models:

@@ -298,8 +298,9 @@ async def openai_chunk_gen(response) -> TokenGenerator:
                 yield delta_content
         usage = chunk.get("usage")
         if usage:
-            num_tokens = usage.get("completion_tokens")
-            while tokens < num_tokens:
+            num_input_tokens = usage.get("prompt_tokens")
+            num_output_tokens = usage.get("completion_tokens")
+            while tokens < num_output_tokens:
                 tokens += 1
                 yield ""
 
