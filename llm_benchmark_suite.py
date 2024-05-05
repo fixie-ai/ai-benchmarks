@@ -41,7 +41,7 @@ parser.add_argument(
 parser.add_argument(
     "--mode",
     "-m",
-    choices=["text", "image", "audio", "video"],
+    choices=["text", "text-2k", "image", "audio", "video"],
     default="text",
     help="Mode to run benchmarks for",
 )
@@ -350,6 +350,7 @@ def _av_models():
 def _get_models(mode: str, filter: Optional[str] = None):
     mode_map = {
         "text": _text_models,
+        "text-2k": _text_models,
         "image": _image_models,
         "audio": _av_models,
         "video": _av_models,
@@ -358,6 +359,24 @@ def _get_models(mode: str, filter: Optional[str] = None):
         raise ValueError(f"Unknown mode {mode}")
     models = mode_map[mode]()
     return [m for m in models if not filter or filter in m.args["model"].lower()]
+
+
+def _get_prompt(mode: str) -> List[str]:
+    if mode == "text":
+        return ["Write a nonet about a sunset."]
+    elif mode == "text-4k":
+        return [
+            "Find the needle in the haystack. Give your answer as a single word."
+            + " hay" * 1000
+            + " Seattle"
+            + " hay" * 700,
+        ]
+    elif mode == "image":
+        return [
+            "Based on the image, explain what will happen next.",
+            "--file",
+            "media/image/inception.jpeg",
+        ]
 
 
 @dataclasses.dataclass
@@ -413,6 +432,7 @@ async def _run(argv: List[str]) -> Tuple[str, str]:
     region = os.getenv("FLY_REGION", "local")
     cmd = " ".join(argv)
     args, pass_argv = parser.parse_known_args(argv)
+    pass_argv += _get_prompt(args.mode)
     models = _get_models(args.mode, args.filter)
     tasks = []
     for m in models:
