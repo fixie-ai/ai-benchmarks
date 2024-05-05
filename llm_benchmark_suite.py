@@ -25,6 +25,7 @@ LLAMA_3_8B_CHAT = "llama-3-8b-chat"
 LLAMA_2_70B_CHAT = "llama-2-70b-chat"
 LLAMA_2_13B_CHAT = "llama-2-13b-chat"
 LLAMA_2_7B_CHAT = "llama-2-7b-chat"
+MIXTRAL_8X22B_INSTRUCT = "mixtral-8x22b-instruct"
 MIXTRAL_8X7B_INSTRUCT = "mixtral-8x7b-instruct"
 PHI_2 = "phi-2"
 
@@ -251,12 +252,19 @@ def _text_models():
         # Gemini
         _Llm("gemini-pro"),
         _Llm("gemini-1.5-pro-preview-0409"),
-        # Mistral
+        # Mistral 8x22b
         _Llm(
-            "mistral-large",
+            "mistral-large",  # is this the same?
             api_key=os.getenv("AZURE_EASTUS2_MISTRAL_API_KEY"),
             base_url="https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1",
         ),
+        _AnyscaleLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
+        _FireworksLlm(
+            "accounts/fireworks/models/mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT
+        ),
+        _OctoLlm("mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT),
+        _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
+        # Mistral 8x7b
         _AnyscaleLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _DatabricksLlm("databricks-mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _FireworksLlm(
@@ -266,6 +274,7 @@ def _text_models():
         _OctoLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _PerplexityLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _PerplexityLlm("sonar-medium-chat"),
+        _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3 70b
         _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
