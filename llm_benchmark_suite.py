@@ -369,6 +369,7 @@ def _get_prompt(mode: str) -> List[str]:
             "--file",
             "media/image/inception.jpeg",
         ]
+    raise ValueError(f"Unknown mode {mode}")
 
 
 @dataclasses.dataclass
@@ -377,7 +378,7 @@ class _Response:
     duration: str
     region: str
     cmd: str
-    results: List[Dict[str, Any]]
+    results: List[llm_benchmark.ApiMetrics]
 
 
 def _format_response(
@@ -394,10 +395,15 @@ def _format_response(
         )
 
         for r in response.results:
-            output = r["output"].replace("\n", "\\n").strip()
+            ttr = r.ttr or 0.0
+            ttft = r.ttft or 0.0
+            tps = r.tps or 0.0
+            num_tokens = r.num_tokens or 0
+            total_time = r.total_time or 0.0
+            output = r.error or r.output.replace("\n", "\\n").strip()
             s += (
-                f"| {r['model']:42} | {r['ttr']:4.2f} | {r['ttft']:4.2f} | "
-                f"{r['tps']:3.0f} | {r['num_tokens']:3} | {r['total_time']:5.2f} | "
+                f"| {r.model:42} | {ttr:4.2f} | {ttft:4.2f} | "
+                f"{tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | "
                 f"{output:{dlen}.{dlen}} |\n"
             )
 
