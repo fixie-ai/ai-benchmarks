@@ -195,6 +195,19 @@ class ApiResult:
     chunk_gen: TokenGenerator
 
 
+@dataclasses.dataclass
+class ApiMetrics:
+    model: str
+    ttr: Optional[float] = None
+    ttft: Optional[float] = None
+    tps: Optional[float] = None
+    input_tokens: Optional[int] = None
+    num_tokens: Optional[int] = None
+    total_time: Optional[float] = None
+    output: Optional[str] = None
+    error: Optional[str] = None
+
+
 async def post(
     ctx: ApiContext,
     url: str,
@@ -617,17 +630,14 @@ def make_context(
     return ApiContext(session, index, name, func, args, prompt or "", files or [])
 
 
-def make_timeout(start_time: float, timeout: float) -> float:
-    return max(0.0, start_time + timeout - time.time())
-
-
 async def main(args: argparse.Namespace):
     if not args.model and not args.base_url:
         print("Either MODEL or BASE_URL must be specified")
         return None
 
     files = [InputFile.from_file(file) for file in args.file or []]
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=args.timeout)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         ctx = make_context(session, -1, args)
         if args.warmup:
             # Do a warmup call to make sure the connection is ready,
@@ -637,6 +647,7 @@ async def main(args: argparse.Namespace):
             await ctx.run()
             await asyncio.sleep(1.0)
 
+        metrics = ApiMetrics(model=ctx.name)
         if args.format == FMT_DEFAULT:
             print(f"Racing {args.num_requests} API calls to {ctx.name}...")
         tasks = [
@@ -646,39 +657,44 @@ async def main(args: argparse.Namespace):
             for i in range(args.num_requests)
         ]
         results = []
-        start_time = time.time()
 
         # Wait for the first task to complete successfully
         chosen = None
+        failed = []
         while tasks and not chosen:
-            done, _ = await asyncio.wait(
-                tasks,
-                return_when=asyncio.FIRST_COMPLETED,
-                timeout=make_timeout(start_time, args.timeout),
-            )
-            if not done:
-                print(f"Timeout waiting for API calls for {ctx.name}")
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            task = done.pop()
+            tasks.remove(task)
+            try:
+                result = task.result()
+            except asyncio.TimeoutError:
+                print(f"API Call timed out")
                 break
 
-            task = done.pop()
-            result = task.result()
             results.append(result)
             if result.response.ok:
                 chosen = task.result()
             else:
+                failed.append(task)
                 status = result.response.status
                 text = await result.response.text()
                 text = text[:200] + "..." if len(text) > 200 else text
                 print(
                     f"API Call {result.index} failed, status={status} latency={result.latency:.2f} text={text}"
                 )
-            tasks.remove(task)
 
         # Bail out if no tasks succeed
         if not chosen:
+            if failed:
+                result = failed[0].result()
+                metrics.ttr = result.latency
+                metrics.error = f"{result.response.status} {result.response.reason}"
+            else:
+                metrics.error = "Timeout"
             print(f"No successful API calls for {ctx.name}")
-            return None
+            return metrics
 
+        metrics.ttr = chosen.latency
         if args.format == FMT_DEFAULT:
             print(f"Chosen API Call: {chosen.index} ({chosen.latency:.2f}s)")
 
@@ -686,31 +702,33 @@ async def main(args: argparse.Namespace):
         first_token_time = None
         output = ""
         num_tokens = 0
+        error = None
         if chosen.chunk_gen:
-            async for chunk in chosen.chunk_gen:
-                output += chunk
-                num_tokens += 1
-                if not first_token_time:
-                    first_token_time = time.time()
-                if args.print:
-                    print(chunk, end="", flush=True)
+            try:
+                async for chunk in chosen.chunk_gen:
+                    output += chunk
+                    num_tokens += 1
+                    if not first_token_time:
+                        first_token_time = time.time()
+                    if args.print:
+                        print(chunk, end="", flush=True)
+            except TimeoutError:
+                error = "Timeout"
             end_time = time.time()
             if args.print:
                 print("\n")
 
         # Wait for the rest of the tasks to complete and clean up
         if tasks:
-            done, _ = await asyncio.wait(
-                tasks,
-                timeout=make_timeout(
-                    start_time, make_timeout(start_time, args.timeout)
-                ),
-            )
-            results += [task.result() for task in done]
-            for result in results:
-                await result.response.release()
+            done, _ = await asyncio.wait(tasks)
+            for task in done:
+                try:
+                    result = task.result()
+                    await result.response.release()
+                except asyncio.TimeoutError:
+                    pass
 
-    # Print out each result, sorted by index
+    # Print out each initial result, sorted by index
     results.sort(key=lambda x: x.index)
     task1 = results[0]
     if args.verbose:
@@ -725,7 +743,7 @@ async def main(args: argparse.Namespace):
                 )
         print("")
 
-    # Print a timing summary
+    # Calculate full results
     latency_saved = task1.latency - chosen.latency
     results.sort(key=lambda x: x.latency)
     med_index1 = (len(results) - 1) // 2
@@ -739,16 +757,14 @@ async def main(args: argparse.Namespace):
     else:
         ttft = tps = total_time = 0.0
         print(f"{ctx.name}: no tokens received")
+    metrics.ttft = ttft
+    metrics.tps = tps
+    metrics.num_tokens = num_tokens
+    metrics.total_time = total_time
+    metrics.output = output
+    metrics.error = error
 
-    metrics = {
-        "model": ctx.name,
-        "ttr": chosen.latency,
-        "ttft": ttft,
-        "tps": tps,
-        "num_tokens": num_tokens,
-        "total_time": total_time,
-        "output": output,
-    }
+    # Print full results
     if args.format == "default":
         print(f"Latency saved: {latency_saved:.2f} seconds")
         print(f"Optimized response time: {chosen.latency:.2f} seconds")
@@ -758,7 +774,7 @@ async def main(args: argparse.Namespace):
             print(f"Tokens: {num_tokens} ({tps:.0f} tokens/sec)")
             print(f"Total time: {total_time:.2f} seconds")
     elif args.format == "minimal":
-        minimal_output = output.replace("\n", "\\n").strip()[:64]
+        minimal_output = error or output.replace("\n", "\\n").strip()[:64]
         print(
             f"| {ctx.name:42} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | {minimal_output} |"
         )
