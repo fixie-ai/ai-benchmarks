@@ -17,6 +17,7 @@ gunicorn = "21.2.0"
 uvicorn = "^0.29.0"
 fastapi = "^0.110.2"
 google-auth = "^2.29.0"
+dataclasses-json = "^0.6.5"
 
 
 [tool.poetry.group.dev.dependencies]

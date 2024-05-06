@@ -12,6 +12,7 @@ import urllib
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 
 import aiohttp
+import dataclasses_json
 
 TokenGenerator = AsyncGenerator[str, None]
 
@@ -196,7 +197,7 @@ class ApiResult:
 
 
 @dataclasses.dataclass
-class ApiMetrics:
+class ApiMetrics(dataclasses_json.DataClassJsonMixin):
     model: str
     ttr: Optional[float] = None
     ttft: Optional[float] = None
@@ -554,6 +555,31 @@ async def fixie_chat(ctx: ApiContext) -> ApiResult:
     return await post(ctx, url, headers, data, make_fixie_chunk_gen)
 
 
+async def fake_chat(ctx: ApiContext) -> ApiResult:
+    @dataclasses.dataclass
+    class FakeResponse:
+        status: int
+        reason: str
+
+        @property
+        def ok(self):
+            return self.status == 200
+
+        async def release(self):
+            pass
+
+    async def make_fake_chunk_gen(output: str):
+        for word in output.split():
+            yield word + " "
+            await asyncio.sleep(0.01)
+
+    output = "This is a fake response."
+    response = FakeResponse(200, "OK")
+    result = ApiResult(ctx.index, time.time(), response, make_fake_chunk_gen(output))
+    await asyncio.sleep(0.1)
+    return result
+
+
 def make_display_name(provider_or_url: str, model: str) -> str:
     # Clean up the base URL to get a nicer provider name.
     if provider_or_url.startswith("https://"):
@@ -617,6 +643,9 @@ def make_context(
         case "embed":
             provider = "cohere"
             func = cohere_embed
+        case "fake":
+            provider = "test"
+            func = fake_chat
         case _ if args.base_url or model.startswith("gpt-") or model.startswith(
             "ft:gpt-"
         ):
@@ -779,7 +808,7 @@ async def main(args: argparse.Namespace):
             f"| {ctx.name:42} | {chosen.latency:4.2f} | {ttft:4.2f} | {tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | {minimal_output} |"
         )
     elif args.format == "json":
-        print(json.dumps(metrics))
+        print(metrics.to_json(indent=2))
     return metrics
 
 

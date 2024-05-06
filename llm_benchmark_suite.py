@@ -2,12 +2,12 @@ import argparse
 import asyncio
 import dataclasses
 import datetime
-import json
 import os
 import random
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
+import dataclasses_json
 import gcloud.aio.storage as gcs
 
 import llm_benchmark
@@ -373,7 +373,7 @@ def _get_prompt(mode: str) -> List[str]:
 
 
 @dataclasses.dataclass
-class _Response:
+class _Response(dataclasses_json.DataClassJsonMixin):
     time: str
     duration: str
     region: str
@@ -385,7 +385,7 @@ def _format_response(
     response: _Response, format: str, dlen: int = 0
 ) -> Tuple[str, str]:
     if format == "json":
-        return json.dumps(vars(response), indent=2), "application/json"
+        return response.to_json(indent=2), "application/json"
     else:
         s = (
             "| Provider/Model                             | TTR  | TTFT | TPS | Tok | Total |"
