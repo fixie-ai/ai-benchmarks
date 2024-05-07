@@ -149,9 +149,17 @@ class InputFile:
         return base64.b64encode(self.data).decode("utf-8")
 
 
-@dataclasses.dataclass
-class ApiContext:
-    def __init__(self, session, index, name, func, args, prompt, files):
+class ApiRequest:
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        index: int,
+        name: str,
+        func: Callable,
+        args: argparse.Namespace,
+        prompt: str,
+        files: List[InputFile],
+    ):
         self.session = session
         self.index = index
         self.name = name
@@ -165,54 +173,21 @@ class ApiContext:
         self.api_key = args.api_key
         self.base_url = args.base_url
 
-    session: aiohttp.ClientSession
-    index: int
-    name: str
-    func: Callable
-    model: str
-    prompt: str
-    files: List[InputFile]
-    temperature: float
-    max_tokens: int
-    detail: Optional[str] = None
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
+        self.start_time = None
+        self.ttr = None
+        self.ttft = None
+        self.tps = None
 
     async def run(self):
-        return await self.func(self)
+        response = await self.func(self)
 
-
-@dataclasses.dataclass
-class ApiResult:
-    def __init__(self, index, start_time, response, chunk_gen):
-        self.index = index
-        self.start_time = start_time
-        self.latency = time.time() - start_time
-        self.response = response
-        self.chunk_gen = chunk_gen
-
-    index: int
-    start_time: int
-    latency: float  # HTTP response time
-    response: aiohttp.ClientResponse
-    chunk_gen: TokenGenerator
-
-
-@dataclasses.dataclass
-class ApiMetrics(dataclasses_json.DataClassJsonMixin):
-    model: str
-    ttr: Optional[float] = None
-    ttft: Optional[float] = None
-    tps: Optional[float] = None
-    input_tokens: Optional[int] = None
-    num_tokens: Optional[int] = None
-    total_time: Optional[float] = None
-    output: Optional[str] = None
-    error: Optional[str] = None
+    @property
+    def result(self):
+        return self.run()
 
 
 async def post(
-    ctx: ApiContext,
+    self,
     url: str,
     headers: dict,
     data: dict,
@@ -247,6 +222,35 @@ def make_headers(
     if x_api_key:
         headers["x-api-key"] = x_api_key
     return headers
+
+
+@dataclasses.dataclass
+class ApiResult:
+    def __init__(self, index, start_time, response, chunk_gen):
+        self.index = index
+        self.start_time = start_time
+        self.latency = time.time() - start_time
+        self.response = response
+        self.chunk_gen = chunk_gen
+
+    index: int
+    start_time: int
+    latency: float  # HTTP response time
+    response: aiohttp.ClientResponse
+    chunk_gen: TokenGenerator
+
+
+@dataclasses.dataclass
+class ApiMetrics(dataclasses_json.DataClassJsonMixin):
+    model: str
+    ttr: Optional[float] = None
+    ttft: Optional[float] = None
+    tps: Optional[float] = None
+    input_tokens: Optional[int] = None
+    num_tokens: Optional[int] = None
+    total_time: Optional[float] = None
+    output: Optional[str] = None
+    error: Optional[str] = None
 
 
 def make_openai_url_and_headers(ctx: ApiContext, path: str):
@@ -669,6 +673,7 @@ async def main(args: argparse.Namespace):
     files = [InputFile.from_file(file) for file in args.file or []]
     timeout = aiohttp.ClientTimeout(total=args.timeout)
     async with aiohttp.ClientSession(timeout=timeout) as session:
+
         ctx = make_context(session, -1, args)
         if args.warmup:
             # Do a warmup call to make sure the connection is ready,
