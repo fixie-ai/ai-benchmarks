@@ -20,6 +20,8 @@ AZURE_OPENAI_API_VERSION = "2024-02-15-preview"
 DEFAULT_PROMPT = "Write a nonet about a sunset."
 DEFAULT_MAX_TOKENS = 100
 DEFAULT_NUM_REQUESTS = 4
+MAX_TTFT = 9.99
+MAX_TOTAL_TIME = 99.99
 
 FMT_DEFAULT = "default"
 FMT_MINIMAL = "minimal"
@@ -717,6 +719,10 @@ async def main(args: argparse.Namespace):
             if failed:
                 result = failed[0].result()
                 metrics.ttr = result.latency
+                metrics.ttft = MAX_TTFT
+                metrics.tps = 0.0
+                metrics.num_tokens = 0
+                metrics.total_time = MAX_TOTAL_TIME
                 metrics.error = f"{result.response.status} {result.response.reason}"
             else:
                 metrics.error = "Timeout"
@@ -748,6 +754,7 @@ async def main(args: argparse.Namespace):
                 print("\n")
 
         # Wait for the rest of the tasks to complete and clean up
+        chosen.response.release()
         if tasks:
             done, _ = await asyncio.wait(tasks)
             for task in done:
