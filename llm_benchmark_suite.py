@@ -11,6 +11,7 @@ import dataclasses_json
 import gcloud.aio.storage as gcs
 
 import llm_benchmark
+import llm_request
 
 DEFAULT_DISPLAY_LENGTH = 64
 DEFAULT_GCS_BUCKET = "thefastest-data"
@@ -378,7 +379,7 @@ class _Response(dataclasses_json.DataClassJsonMixin):
     duration: str
     region: str
     cmd: str
-    results: List[llm_benchmark.ApiMetrics]
+    results: List[llm_request.ApiMetrics]
 
 
 def _format_response(
