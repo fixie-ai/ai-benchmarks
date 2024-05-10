@@ -23,9 +23,6 @@ GPT_35_TURBO_0125 = "gpt-3.5-turbo-0125"
 GPT_35_TURBO_1106 = "gpt-3.5-turbo-1106"
 LLAMA_3_70B_CHAT = "llama-3-70b-chat"
 LLAMA_3_8B_CHAT = "llama-3-8b-chat"
-LLAMA_2_70B_CHAT = "llama-2-70b-chat"
-LLAMA_2_13B_CHAT = "llama-2-13b-chat"
-LLAMA_2_7B_CHAT = "llama-2-7b-chat"
 MIXTRAL_8X22B_INSTRUCT = "mixtral-8x22b-instruct"
 MIXTRAL_8X7B_INSTRUCT = "mixtral-8x7b-instruct"
 PHI_2 = "phi-2"
@@ -244,8 +241,6 @@ def _text_models():
         _Llm("claude-3-opus-20240229"),
         _Llm("claude-3-sonnet-20240229"),
         _Llm("claude-3-haiku-20240307"),
-        _Llm("claude-2.1"),
-        _Llm("claude-instant-1.2"),
         # Cohere
         _Llm("command-r-plus"),
         _Llm("command-r"),
@@ -273,8 +268,6 @@ def _text_models():
         ),
         _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT),
         _OctoLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
-        _PerplexityLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
-        _PerplexityLlm("sonar-medium-chat"),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3 70b
         _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
@@ -286,28 +279,6 @@ def _text_models():
         _OctoLlm("meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
-        # Llama 2 70b
-        _Llm(
-            LLAMA_2_70B_CHAT,
-            api_key=os.getenv("AZURE_WESTUS3_LLAMA2_API_KEY"),
-            base_url="https://fixie-llama-2-70b-serverless.westus3.inference.ai.azure.com/v1",
-        ),
-        _Llm(
-            LLAMA_2_70B_CHAT,
-            api_key=os.getenv("AZURE_EASTUS2_LLAMA2_API_KEY"),
-            base_url="https://fixie-llama-2-70b-serverless.eastus2.inference.ai.azure.com/v1",
-        ),
-        _AnyscaleLlm("meta-llama/Llama-2-70b-chat-hf", LLAMA_2_70B_CHAT),
-        _DatabricksLlm("databricks-llama-2-70b-chat", LLAMA_2_70B_CHAT),
-        _FireworksLlm("accounts/fireworks/models/llama-v2-70b-chat", LLAMA_2_70B_CHAT),
-        _GroqLlm("llama2-70b-4096", LLAMA_2_70B_CHAT),
-        _OctoLlm("llama-2-70b-chat-fp16", LLAMA_2_70B_CHAT),
-        _TogetherLlm("togethercomputer/llama-2-70b-chat", LLAMA_2_70B_CHAT),
-        # Llama 2 13b
-        _AnyscaleLlm("meta-llama/Llama-2-13b-chat-hf", LLAMA_2_13B_CHAT),
-        _FireworksLlm("accounts/fireworks/models/llama-v2-13b-chat", LLAMA_2_13B_CHAT),
-        _OctoLlm("llama-2-13b-chat-fp16", LLAMA_2_13B_CHAT),
-        _TogetherLlm("togethercomputer/llama-2-13b-chat", LLAMA_2_13B_CHAT),
         # Llama 3 8b
         _AnyscaleLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         _CloudflareLlm("@cf/meta/llama-3-8b-instruct", LLAMA_3_8B_CHAT),
@@ -318,12 +289,6 @@ def _text_models():
         _OctoLlm("meta-llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _PerplexityLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
-        # Llama 2 7b
-        _AnyscaleLlm("meta-llama/Llama-2-7b-chat-hf", LLAMA_2_7B_CHAT),
-        _CloudflareLlm("@cf/meta/llama-2-7b-chat-fp16", LLAMA_2_7B_CHAT),
-        # _DatabricksLlm("fixie-llama-2-7b", LLAMA_2_7B_CHAT),
-        _FireworksLlm("accounts/fireworks/models/llama-v2-7b-chat", LLAMA_2_7B_CHAT),
-        _TogetherLlm("togethercomputer/llama-2-7b-chat", LLAMA_2_7B_CHAT),
         # Phi-2
         _CloudflareLlm("@cf/microsoft/phi-2", PHI_2),
         _TogetherLlm("microsoft/phi-2", PHI_2),
