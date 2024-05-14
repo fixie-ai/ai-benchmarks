@@ -252,11 +252,11 @@ def _text_models():
         _Llm("gemini-pro"),
         _Llm("gemini-1.5-pro-preview-0409"),
         # Mistral 8x22b
-        _Llm(
-            "mistral-large",  # is this the same?
-            api_key=os.getenv("AZURE_EASTUS2_MISTRAL_API_KEY"),
-            base_url="https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1",
-        ),
+        # _Llm(
+        #    "mistral-large",  # is this the same?
+        #    api_key=os.getenv("AZURE_EASTUS2_MISTRAL_API_KEY"),
+        #    base_url="https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1",
+        # ),
         _AnyscaleLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         _FireworksLlm(
             "accounts/fireworks/models/mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT
