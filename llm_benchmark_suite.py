@@ -15,6 +15,8 @@ import llm_request
 
 DEFAULT_DISPLAY_LENGTH = 64
 DEFAULT_GCS_BUCKET = "thefastest-data"
+
+GPT_4O = "gpt-4o"
 GPT_4_TURBO = "gpt-4-turbo"
 GPT_4_0125_PREVIEW = "gpt-4-0125-preview"
 GPT_4_1106_PREVIEW = "gpt-4-1106-preview"
@@ -199,6 +201,7 @@ def _text_models():
     AZURE_EASTUS2_OPENAI_API_KEY = os.getenv("AZURE_EASTUS2_OPENAI_API_KEY")
     return [
         # GPT-4
+        _Llm(GPT_4O),
         _Llm(GPT_4_TURBO),
         _Llm(GPT_4_0125_PREVIEW),
         _Llm(
@@ -297,7 +300,8 @@ def _text_models():
 
 def _image_models():
     return [
-        _Llm("gpt-4-turbo"),
+        _Llm(GPT_4O),
+        _Llm(GPT_4_TURBO),
         _Llm("gpt-4-vision-preview", base_url="https://fixie-westus.openai.azure.com"),
         _Llm("claude-3-opus-20240229"),
         _Llm("claude-3-sonnet-20240229"),
@@ -309,6 +313,7 @@ def _image_models():
 
 def _av_models():
     return [
+        _Llm(GPT_4O),
         _Llm("gemini-1.5-pro-preview-0409"),
     ]
 
