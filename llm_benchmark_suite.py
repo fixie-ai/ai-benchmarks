@@ -250,7 +250,8 @@ def _text_models():
         _Llm("command-light"),
         # Gemini
         _Llm("gemini-pro"),
-        _Llm("gemini-1.5-pro-preview-0409"),
+        _Llm("gemini-1.5-pro-preview-0514"),
+        _Llm("gemini-1.5-flash-preview-0514"),
         # Mistral 8x22b
         # _Llm(
         #    "mistral-large",  # is this the same?
@@ -306,15 +307,17 @@ def _image_models():
         _Llm("claude-3-opus-20240229"),
         _Llm("claude-3-sonnet-20240229"),
         _Llm("gemini-pro-vision"),
-        _Llm("gemini-1.5-pro-preview-0409"),
+        _Llm("gemini-1.5-pro-preview-0514"),
+        _Llm("gemini-1.5-flash-preview-0514"),
         _FireworksLlm("accounts/fireworks/models/firellava-13b", "firellava-13b"),
     ]
 
 
 def _av_models():
     return [
-        _Llm(GPT_4O),
-        _Llm("gemini-1.5-pro-preview-0409"),
+        # _Llm(GPT_4O),
+        _Llm("gemini-1.5-pro-preview-0514"),
+        _Llm("gemini-1.5-flash-preview-0514"),
     ]
 
 
@@ -339,6 +342,18 @@ def _get_prompt(mode: str) -> List[str]:
             "Based on the image, explain what will happen next.",
             "--file",
             "media/image/inception.jpeg",
+        ]
+    elif mode == "audio":
+        return [
+            "Summarize the information in the audio clip.",
+            "--file",
+            "media/audio/news.wav",
+        ]
+    elif mode == "video":
+        return [
+            "What color is the logo on the screen and how does it relate to what the actor is saying?",
+            "--file",
+            "media/video/psa.webm",
         ]
     raise ValueError(f"Unknown mode {mode}")
 
