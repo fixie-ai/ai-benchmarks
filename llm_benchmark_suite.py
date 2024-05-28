@@ -275,6 +275,9 @@ def _text_models():
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Function calling Mistral 8x7b
         _FireworksLlm("accounts/fireworks/models/firefunction-v1", "firefunction-v1"),
+        _FireworksLlm(
+            "accounts/fireworks/models/firefunction-v2-rc", "firefunction-v2"
+        ),
         # Llama 3 70b
         _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
