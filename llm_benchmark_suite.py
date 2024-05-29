@@ -200,9 +200,22 @@ class _TogetherLlm(_Llm):
 def _text_models():
     AZURE_EASTUS2_OPENAI_API_KEY = os.getenv("AZURE_EASTUS2_OPENAI_API_KEY")
     return [
-        # GPT-4
+        # GPT-4o
         _Llm(GPT_4O),
+        _Llm(
+            GPT_4O,
+            api_key=AZURE_EASTUS2_OPENAI_API_KEY,
+            base_url="https://fixie-openai-sub-with-gpt4.openai.azure.com",
+        ),
+        _Llm(GPT_4O, base_url="https://fixie-westus.openai.azure.com"),
+        _Llm(
+            GPT_4O,
+            api_key=os.getenv("AZURE_NCENTRALUS_OPENAI_API_KEY"),
+            base_url="https://fixie-centralus.openai.azure.com",
+        ),
+        # GPT-4 Turbo
         _Llm(GPT_4_TURBO),
+        # GPT-4 Turbo Previews
         _Llm(GPT_4_0125_PREVIEW),
         _Llm(
             GPT_4_0125_PREVIEW,
@@ -275,9 +288,6 @@ def _text_models():
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Function calling Mistral 8x7b
         _FireworksLlm("accounts/fireworks/models/firefunction-v1", "firefunction-v1"),
-        _FireworksLlm(
-            "accounts/fireworks/models/firefunction-v2-rc", "firefunction-v2"
-        ),
         # Llama 3 70b
         _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
@@ -288,6 +298,10 @@ def _text_models():
         _OctoLlm("meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
+        # Function calling with Llama 3 70b
+        _FireworksLlm(
+            "accounts/fireworks/models/firefunction-v2-rc", "firefunction-v2"
+        ),
         # Llama 3 8b
         _AnyscaleLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         _CloudflareLlm("@cf/meta/llama-3-8b-instruct", LLAMA_3_8B_CHAT),
