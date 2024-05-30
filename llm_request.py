@@ -106,6 +106,8 @@ class ApiContext:
                 self.metrics.error = f"{response.status} {response.reason}"
         except TimeoutError:
             self.metrics.error = "Timeout"
+        except aiohttp.ClientError as e:
+            self.metrics.error = str(e)
         end_time = time.time()
         if self.metrics.num_tokens:
             token_time = end_time - first_token_time
