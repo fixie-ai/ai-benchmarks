@@ -194,6 +194,7 @@ def make_openai_chat_body(ctx: ApiContext, **kwargs):
     # we let the caller specify the key and format.
     body = {
         "model": ctx.model,
+        "model": ctx.model or None,
         "max_tokens": ctx.max_tokens,
         "temperature": ctx.temperature,
         "stream": True,
@@ -538,7 +539,7 @@ def make_context(
     model = args.model
     prefix = re.split("-|/", model)[0]
     provider = args.base_url
-    match (prefix):
+    match prefix:
         case "claude":
             provider = "anthropic"
             func = anthropic_chat
