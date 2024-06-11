@@ -193,7 +193,6 @@ def make_openai_chat_body(ctx: ApiContext, **kwargs):
     # Models differ in how they want to receive the prompt, so
     # we let the caller specify the key and format.
     body = {
-        "model": ctx.model,
         "model": ctx.model or None,
         "max_tokens": ctx.max_tokens,
         "temperature": ctx.temperature,
