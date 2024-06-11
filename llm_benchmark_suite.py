@@ -89,10 +89,11 @@ class _Llm:
 
     def __init__(self, model: str, display_name: Optional[str] = None, **kwargs):
         self.args = {
-            "model": model,
             "format": "none",
             **kwargs,
         }
+        if model:
+            self.args["model"] = model
         if display_name:
             self.args["display_name"] = display_name
 
@@ -197,6 +198,17 @@ class _TogetherLlm(_Llm):
         )
 
 
+class _OvhLlm(_Llm):
+    """See https://llama-3-70b-instruct.endpoints.kepler.ai.cloud.ovh.net/doc"""
+
+    def __init__(self, model: str, display_model: Optional[str] = None):
+        super().__init__(
+            "",
+            "ovh.net/" + display_model,
+            base_url=f"https://{model}.endpoints.kepler.ai.cloud.ovh.net/api/openai_compat/v1",
+        )
+
+
 def _text_models():
     AZURE_EASTUS2_OPENAI_API_KEY = os.getenv("AZURE_EASTUS2_OPENAI_API_KEY")
     return [
@@ -298,6 +310,7 @@ def _text_models():
         _OctoLlm("meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
+        _OvhLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         # Function calling with Llama 3 70b
         _FireworksLlm(
             "accounts/fireworks/models/firefunction-v2-rc", "firefunction-v2"
@@ -312,6 +325,7 @@ def _text_models():
         _OctoLlm("meta-llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _PerplexityLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
+        _OvhLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         # Phi-2
         _CloudflareLlm("@cf/microsoft/phi-2", PHI_2),
         _TogetherLlm("microsoft/phi-2", PHI_2),
@@ -350,7 +364,12 @@ def _get_models(mode: str, filter: Optional[str] = None):
     if mode not in mode_map:
         raise ValueError(f"Unknown mode {mode}")
     models = mode_map[mode]()
-    return [m for m in models if not filter or filter in m.args["model"].lower()]
+    return [
+        m
+        for m in models
+        if not filter
+        or filter in (m.args.get("display_name") or m.args["model"]).lower()
+    ]
 
 
 def _get_prompt(mode: str) -> List[str]:
