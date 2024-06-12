@@ -382,12 +382,14 @@ async def gemini_chat(ctx: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> TokenGenerator:
         tokens = 0
         async for chunk in make_json_chunk_gen(response):
-            content = chunk["candidates"][0].get("content")
-            if content and "parts" in content:
-                part = content["parts"][0]
-                if "text" in part:
-                    tokens += 1
-                    yield part["text"]
+            candidates = chunk.get("candidates")
+            if candidates:
+                content = candidates[0].get("content")
+                if content and "parts" in content:
+                    part = content["parts"][0]
+                    if "text" in part:
+                        tokens += 1
+                        yield part["text"]
             usage = chunk.get("usageMetadata")
             if usage:
                 num_tokens = usage.get("candidatesTokenCount")
