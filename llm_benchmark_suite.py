@@ -204,7 +204,7 @@ class _OvhLlm(_Llm):
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             "",
-            "ovh.net/" + display_model,
+            "endpoints.ai.cloud.ovh.net/" + display_model,
             base_url=f"https://{model}.endpoints.kepler.ai.cloud.ovh.net/api/openai_compat/v1",
         )
 
