@@ -214,7 +214,7 @@ class _OvhLlm(_Llm):
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             "",
-            "ovh.net/" + display_model,
+            "endpoints.ai.cloud.ovh.net/" + display_model,
             base_url=f"https://{model}.endpoints.kepler.ai.cloud.ovh.net/api/openai_compat/v1",
         )
 
@@ -277,6 +277,7 @@ def _text_models():
         ),
         # Claude
         _Llm("claude-3-opus-20240229"),
+        _Llm("claude-3-5-sonnet-20240620"),
         _Llm("claude-3-sonnet-20240229"),
         _Llm("claude-3-haiku-20240307"),
         # Cohere
@@ -352,6 +353,7 @@ def _image_models():
         _Llm(GPT_4_TURBO),
         _Llm("gpt-4-vision-preview", base_url="https://fixie-westus.openai.azure.com"),
         _Llm("claude-3-opus-20240229"),
+        _Llm("claude-3-5-sonnet-20240620"),
         _Llm("claude-3-sonnet-20240229"),
         _Llm("gemini-pro-vision"),
         _Llm("gemini-1.5-pro-preview-0514"),
