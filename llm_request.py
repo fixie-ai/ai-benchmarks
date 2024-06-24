@@ -236,6 +236,15 @@ async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiRe
     return await post(ctx, url, headers, data, openai_chunk_gen)
 
 
+async def ovhllm_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiResult:
+    url, headers = make_openai_url_and_headers(ctx, path)
+    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx))
+    # Clean up the headers and data for OVH.
+    headers.pop("authorization")
+    data.pop("model")
+    return await post(ctx, url, headers, data, openai_chunk_gen)
+
+
 async def openai_embed(ctx: ApiContext) -> ApiResult:
     url, headers = make_openai_url_and_headers(ctx, "/embeddings")
     data = {"model": ctx.model, "input": ctx.prompt}
@@ -562,6 +571,8 @@ def make_context(
         case "fake":
             provider = "test"
             func = fake_chat
+        case "ovhcloud":
+            func = ovhllm_chat
         case _ if args.base_url or model.startswith("gpt-") or model.startswith(
             "ft:gpt-"
         ):
