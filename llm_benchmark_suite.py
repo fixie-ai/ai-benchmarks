@@ -125,6 +125,16 @@ class _CloudflareLlm(_Llm):
             "cloudflare.com/" + (display_model or model),
         )
 
+class _DeepInfraLlm(_Llm):
+    """See https://deepinfra.com/models"""
+
+    def __init__(self, model: str, display_model: Optional[str] = None):
+        super().__init__(
+            model,
+            "deepinfra.com/" + (display_model or model),
+            api_key=os.getenv("DEEPINFRA_API_TOKEN"),
+            base_url="https://api.deepinfra.com/v1/openai",
+        )
 
 class _DatabricksLlm(_Llm):
     """See https://docs.databricks.com/en/machine-learning/foundation-models/supported-models.html"""
@@ -285,6 +295,7 @@ def _text_models():
         #    base_url="https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1",
         # ),
         _AnyscaleLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
+        _DeepInfraLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         _FireworksLlm(
             "accounts/fireworks/models/mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT
         ),
@@ -293,6 +304,7 @@ def _text_models():
         # Mistral 8x7b
         _AnyscaleLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _DatabricksLlm("databricks-mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
+        _DeepInfraLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _FireworksLlm(
             "accounts/fireworks/models/mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT
         ),
@@ -302,6 +314,7 @@ def _text_models():
         # Llama 3 70b
         _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
+        _DeepInfraLlm("meta-llama/Meta-Llama-3-70B-Instruct", LLAMA_3_70B_CHAT),
         _FireworksLlm(
             "accounts/fireworks/models/llama-v3-70b-instruct", LLAMA_3_70B_CHAT
         ),
@@ -315,6 +328,7 @@ def _text_models():
         # Llama 3 8b
         _AnyscaleLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         _CloudflareLlm("@cf/meta/llama-3-8b-instruct", LLAMA_3_8B_CHAT),
+        _DeepInfraLlm("meta-llama/Meta-Llama-3-8B-Instruct", LLAMA_3_8B_CHAT),
         _FireworksLlm(
             "accounts/fireworks/models/llama-v3-8b-instruct", LLAMA_3_8B_CHAT
         ),
