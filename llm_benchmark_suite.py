@@ -125,6 +125,7 @@ class _CloudflareLlm(_Llm):
             "cloudflare.com/" + (display_model or model),
         )
 
+
 class _DeepInfraLlm(_Llm):
     """See https://deepinfra.com/models"""
 
@@ -135,6 +136,7 @@ class _DeepInfraLlm(_Llm):
             api_key=os.getenv("DEEPINFRA_API_TOKEN"),
             base_url="https://api.deepinfra.com/v1/openai",
         )
+
 
 class _DatabricksLlm(_Llm):
     """See https://docs.databricks.com/en/machine-learning/foundation-models/supported-models.html"""
