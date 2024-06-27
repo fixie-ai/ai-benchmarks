@@ -358,7 +358,20 @@ def _image_models():
     ]
 
 
-def _av_models():
+def _audio_models():
+    return [
+        # _Llm(GPT_4O), doesn't suppot audio yet
+        # _Llm("gemini-1.5-pro-preview-0514"), 400ing right now
+        # _Llm("gemini-1.5-flash-preview-0514"), 400ing right now
+        _Llm(
+            "fixie-ai/ultravox-v0.2",
+            base_url="https://ultravox.api.fixie.ai/v1",
+            api_key=os.getenv("ULTRAVOX_API_KEY"),
+        ),
+    ]
+
+
+def _video_models():
     return [
         # _Llm(GPT_4O),
         _Llm("gemini-1.5-pro-preview-0514"),
@@ -370,8 +383,8 @@ def _get_models(mode: str, filter: Optional[str] = None):
     mode_map = {
         "text": _text_models,
         "image": _image_models,
-        "audio": _av_models,
-        "video": _av_models,
+        "audio": _audio_models,
+        "video": _video_models,
     }
     if mode not in mode_map:
         raise ValueError(f"Unknown mode {mode}")
@@ -395,9 +408,9 @@ def _get_prompt(mode: str) -> List[str]:
         ]
     elif mode == "audio":
         return [
-            "Summarize the information in the audio clip.",
+            "Listen to the following audio and provide a response:",
             "--file",
-            "media/audio/news.wav",
+            "media/audio/boolq.wav",
         ]
     elif mode == "video":
         return [

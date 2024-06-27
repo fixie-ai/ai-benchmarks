@@ -179,8 +179,8 @@ def make_openai_messages(ctx: ApiContext):
 
     content: List[Dict[str, Any]] = [{"type": "text", "text": ctx.prompt}]
     for file in ctx.files:
-        if not file.mime_type.startswith("image/"):
-            raise ValueError(f"Unsupported file type: {file.mime_type}")
+        # if not file.mime_type.startswith("image/"):
+        #    raise ValueError(f"Unsupported file type: {file.mime_type}")
         url = f"data:{file.mime_type};base64,{file.base64_data}"
         image_url = {"url": url}
         if ctx.detail:
