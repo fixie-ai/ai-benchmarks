@@ -167,7 +167,7 @@ def make_openai_url_and_headers(ctx: ApiContext, path: str):
         headers = make_headers(api_key=api_key)
         url += f"/openai/deployments/{ctx.model.replace('.', '')}{path}?api-version={AZURE_OPENAI_API_VERSION}"
     else:
-        api_key = get_api_key(ctx, "OPENAI_API_KEY")
+        api_key = ctx.api_key if ctx.base_url else get_api_key(ctx, "OPENAI_API_KEY")
         headers = make_headers(auth_token=api_key)
         url += path
     return url, headers
