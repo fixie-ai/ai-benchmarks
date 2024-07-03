@@ -362,13 +362,19 @@ def _image_models():
 
 def _audio_models():
     return [
-        # _Llm(GPT_4O), doesn't suppot audio yet
+        # _Llm(GPT_4O), doesn't support audio yet
         # _Llm("gemini-1.5-pro-preview-0514"), 400ing right now
         # _Llm("gemini-1.5-flash-preview-0514"), 400ing right now
         _Llm(
             "fixie-ai/ultravox-v0.2",
             base_url="https://ultravox.api.fixie.ai/v1",
             api_key=os.getenv("ULTRAVOX_API_KEY"),
+        ),
+        _Llm(
+            "fixie-ai/ultravox-v0.2",
+            "baseten.co/ultravox-v0.2",
+            base_url="https://bridge.baseten.co/5wovovzq/direct/v1",
+            api_key=os.getenv("BASETEN_API_KEY"),
         ),
     ]
 
