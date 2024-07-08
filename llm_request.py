@@ -204,13 +204,15 @@ def make_openai_chat_body(ctx: ApiContext, **kwargs):
 
 
 async def make_sse_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
+    done = False
     async for line in response.content:
         line = line.decode("utf-8").strip()
         if line.startswith("data:"):
             content = line[5:].strip()
             if content == "[DONE]":
-                break
-            yield json.loads(content)
+                done = True
+            elif not done:
+                yield json.loads(content)
 
 
 async def openai_chunk_gen(response) -> TokenGenerator:
