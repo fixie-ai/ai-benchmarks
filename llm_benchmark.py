@@ -145,7 +145,7 @@ async def main(args: argparse.Namespace):
     timeout = aiohttp.ClientTimeout(total=args.timeout)
     trace_configs = [LlmTraceConfig()] if args.verbose else []
     async with aiohttp.ClientSession(
-        timeout=timeout, trace_configs=trace_configs, connector=aiohttp.TCPConnector()
+        timeout=timeout, trace_configs=trace_configs
     ) as session:
         init_ctx = llm_request.make_context(session, -1, args)
         contexts = [
