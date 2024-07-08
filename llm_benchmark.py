@@ -118,6 +118,23 @@ parser.add_argument(
 )
 
 
+class LlmTraceConfig(aiohttp.TraceConfig):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.on_request_start.append(self._on_request_start_func)
+        self.on_connection_create_end.append(self._on_connection_create_end_func)
+        self.on_connection_reuseconn.append(self._on_connection_reuseconn_func)
+
+    async def _on_request_start_func(self, session, trace_ctx, params):
+        self._url = params.url
+
+    async def _on_connection_create_end_func(self, session, trace_ctx, params):
+        print(f"Created connection for {self._url}")
+
+    async def _on_connection_reuseconn_func(self, session, trace_ctx, params):
+        print(f"Reused connection for {self._url}")
+
+
 async def main(args: argparse.Namespace):
     if not args.model and not args.base_url:
         print("Either MODEL or BASE_URL must be specified")
@@ -126,7 +143,10 @@ async def main(args: argparse.Namespace):
     # Run the queries.
     files = [llm_request.InputFile.from_file(file) for file in args.file or []]
     timeout = aiohttp.ClientTimeout(total=args.timeout)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    trace_configs = [LlmTraceConfig()] if args.verbose else []
+    async with aiohttp.ClientSession(
+        timeout=timeout, trace_configs=trace_configs, connector=aiohttp.TCPConnector()
+    ) as session:
         init_ctx = llm_request.make_context(session, -1, args)
         contexts = [
             llm_request.make_context(session, i, args, args.prompt, files)
