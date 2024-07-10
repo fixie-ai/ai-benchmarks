@@ -32,6 +32,10 @@ class InputFile:
             data = f.read()
         return cls(mime_type, data)
 
+    @classmethod
+    def from_bytes(cls, mime_type: str, data: bytes):
+        return cls(mime_type, data)
+
     mime_type: str
     data: bytes
 
@@ -100,8 +104,10 @@ class ApiContext:
                         if not first_token_time:
                             first_token_time = time.time()
                             self.metrics.ttft = first_token_time - start_time
-                        if on_token:
+                        if on_token and chunk:
                             on_token(self, chunk)
+                    if on_token:
+                        on_token(self, "")
             else:
                 self.metrics.error = f"{response.status} {response.reason}"
         except TimeoutError:

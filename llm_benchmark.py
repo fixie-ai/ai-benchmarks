@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import asyncio
+import time
 from typing import List
 
 import aiohttp
@@ -84,11 +85,24 @@ parser.add_argument(
     help="Don't do a warmup call to the API",
 )
 parser.add_argument(
+    "--no-reuse-connections",
+    action="store_false",
+    dest="reuse_connections",
+    help="Don't reuse connections",
+)
+parser.add_argument(
     "--num-requests",
     "-n",
     type=int,
     default=DEFAULT_NUM_REQUESTS,
     help="Number of requests to make",
+)
+parser.add_argument(
+    "--parallel-requests",
+    "-P",
+    type=int,
+    default=1,
+    help="Number of requests to make in parallel",
 )
 parser.add_argument(
     "--print",
@@ -124,15 +138,28 @@ class LlmTraceConfig(aiohttp.TraceConfig):
         self.on_request_start.append(self._on_request_start_func)
         self.on_connection_create_end.append(self._on_connection_create_end_func)
         self.on_connection_reuseconn.append(self._on_connection_reuseconn_func)
+        self.on_request_headers_sent.append(self._on_request_headers_sent_func)
+        self.on_request_chunk_sent.append(self._on_request_chunk_sent_func)
 
-    async def _on_request_start_func(self, session, trace_ctx, params):
-        self._url = params.url
+    async def _on_request_start_func(self, session, ctx, params):
+        ctx.url = params.url
+        ctx.start_time = time.time()
 
-    async def _on_connection_create_end_func(self, session, trace_ctx, params):
-        print(f"Created connection for {self._url}")
+    async def _on_connection_create_end_func(self, session, ctx, params):
+        self._trace(ctx, "created connection")
 
-    async def _on_connection_reuseconn_func(self, session, trace_ctx, params):
-        print(f"Reused connection for {self._url}")
+    async def _on_connection_reuseconn_func(self, session, ctx, params):
+        self._trace(ctx, "reused connection")
+
+    async def _on_request_headers_sent_func(self, session, ctx, params):
+        self._trace(ctx, "sent headers")
+
+    async def _on_request_chunk_sent_func(self, session, ctx, params):
+        self._trace(ctx, "sent chunk")
+
+    def _trace(self, ctx, action):
+        delta = time.time() - ctx.start_time
+        print(f"[{delta:.3f}] {ctx.url.host}: {action}")
 
 
 async def main(args: argparse.Namespace):
@@ -144,8 +171,9 @@ async def main(args: argparse.Namespace):
     files = [llm_request.InputFile.from_file(file) for file in args.file or []]
     timeout = aiohttp.ClientTimeout(total=args.timeout)
     trace_configs = [LlmTraceConfig()] if args.verbose else []
+    connector = aiohttp.TCPConnector(force_close=not args.reuse_connections)
     async with aiohttp.ClientSession(
-        timeout=timeout, trace_configs=trace_configs
+        timeout=timeout, trace_configs=trace_configs, connector=connector
     ) as session:
         init_ctx = llm_request.make_context(session, -1, args)
         contexts = [
@@ -171,12 +199,22 @@ async def main(args: argparse.Namespace):
                     print(f"Chosen API Call: {chosen.index} ({ttft:.2f}s)")
             if ctx == chosen:
                 if args.print:
-                    print(token, end="", flush=True)
+                    if token:
+                        print(token, end="", flush=True)
+                    else:
+                        print("\n")
 
+        num_parallel = max(min(args.parallel_requests, args.num_requests), 1)
         if args.format == FMT_DEFAULT:
-            print(f"Racing {args.num_requests} API calls to {init_ctx.name}...")
-        tasks = [asyncio.create_task(ctx.run(on_token)) for ctx in contexts]
-        await asyncio.gather(*tasks)
+            print(
+                f"Sending {args.num_requests} API calls ({num_parallel} at a time) to {init_ctx.name}..."
+            )
+        for i in range(0, args.num_requests, num_parallel):
+            tasks = [
+                asyncio.create_task(ctx.run(on_token))
+                for ctx in contexts[i : i + num_parallel]
+            ]
+            await asyncio.gather(*tasks)
 
     # Bail out if there were no successful API calls.
     task0_metrics = contexts[0].metrics
@@ -186,22 +224,22 @@ async def main(args: argparse.Namespace):
         return task0_metrics
 
     # Print results.
-    if args.print:
-        print("\n")
     if args.verbose:
         for ctx in contexts:
             r = ctx.metrics
             if not r.error:
-                print(f"API Call {ctx.index} TTFT: {r.ttft:.2f} seconds")
+                print(
+                    f"API Call {ctx.index}: TTFT={r.ttft:.2f}s, Total={r.total_time:.2f}s"
+                )
             else:
-                print(f"API Call {ctx.index} Result: {r.error}")
+                print(f"API Call {ctx.index}: {r.error}")
         print("")
 
-    r = chosen.metrics
+    metrics = [ctx.metrics for ctx in contexts]
+    metrics.sort(key=lambda x: x.ttft)
+    r = metrics[0]
     if args.format == FMT_DEFAULT:
-        metrics = [ctx.metrics for ctx in contexts]
         latency_saved = task0_metrics.ttft - r.ttft
-        metrics.sort(key=lambda x: x.ttft)
         med_index1 = (len(metrics) - 1) // 2
         med_index2 = len(metrics) // 2
         median_latency = (metrics[med_index1].ttft + metrics[med_index2].ttft) / 2
