@@ -101,7 +101,7 @@ parser.add_argument(
     "--parallel-requests",
     "-P",
     type=int,
-    default=1,
+    default=100,
     help="Number of requests to make in parallel",
 )
 parser.add_argument(
