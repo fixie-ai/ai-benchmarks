@@ -327,6 +327,11 @@ def _text_models():
         _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _OvhLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
+        # Finetunes on Llama 3 70b
+        _FireworksLlm(
+            "accounts/fixie/models/1b68538a063a49e2ae4513d4ef186e9a",
+            "lora-1b68",
+        ),
         # Function calling with Llama 3 70b
         _FireworksLlm("accounts/fireworks/models/firefunction-v2", "firefunction-v2"),
         # Llama 3 8b
