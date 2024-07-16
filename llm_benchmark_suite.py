@@ -375,7 +375,7 @@ def _audio_models():
         _Llm(
             "fixie-ai/ultravox-v0.2",
             "baseten.co/ultravox-v0.2",
-            base_url="https://bridge.baseten.co/5wovovzq/direct/v1",
+            base_url="https://bridge.baseten.co/5wovovzq/v1/direct",
             api_key=os.getenv("BASETEN_API_KEY"),
         ),
     ]
