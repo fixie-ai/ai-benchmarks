@@ -409,7 +409,11 @@ def _get_models(mode: str, filter: Optional[str] = None):
 
 def _get_prompt(mode: str) -> List[str]:
     if mode == "text":
-        return ["Write a nonet about a sunset."]
+        return [
+            "I have a flight booked for tomorrow with American Airlines, flight number AA100. Can you check its status for me?",
+            "--tools",
+            "media/tools/flights.json",
+        ]
     elif mode == "image":
         return [
             "Based on the image, explain what will happen next.",

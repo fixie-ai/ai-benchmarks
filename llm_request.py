@@ -83,8 +83,9 @@ class ApiContext:
     detail: Optional[str] = None
     api_key: Optional[str] = None
     base_url: Optional[str] = None
+    tools: Optional[Dict] = None
 
-    def __init__(self, session, index, name, func, args, prompt, files):
+    def __init__(self, session, index, name, func, args, prompt, files, tools):
         self.session = session
         self.index = index
         self.name = name
@@ -92,6 +93,7 @@ class ApiContext:
         self.model = args.model
         self.prompt = prompt
         self.files = files
+        self.tools = tools
         self.detail = args.detail
         self.temperature = args.temperature
         self.max_tokens = args.max_tokens
@@ -122,6 +124,7 @@ class ApiContext:
                         on_token(self, "")
             else:
                 self.metrics.error = f"{response.status} {response.reason}"
+                print(await response.text())
         except TimeoutError:
             self.metrics.error = "Timeout"
         except aiohttp.ClientError as e:
@@ -214,7 +217,7 @@ def make_openai_chat_body(ctx: ApiContext, **kwargs):
         "model": ctx.model or None,
         "max_tokens": ctx.max_tokens,
         "temperature": ctx.temperature,
-        "stream": True,
+        # "stream": True,
     }
     for key, value in kwargs.items():
         body[key] = value
@@ -252,7 +255,11 @@ async def openai_chunk_gen(response) -> TokenGenerator:
 
 async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiResult:
     url, headers = make_openai_url_and_headers(ctx, path)
-    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx))
+    kwargs = {"messages": make_openai_messages(ctx)}
+    if ctx.tools:
+        kwargs["tools"] = ctx.tools
+        kwargs["tool_choice"] = "auto"
+    data = make_openai_chat_body(ctx, **kwargs)
     return await post(ctx, url, headers, data, openai_chunk_gen)
 
 
@@ -557,6 +564,7 @@ def make_context(
     args: argparse.Namespace,
     prompt: Optional[str] = None,
     files: Optional[List[InputFile]] = None,
+    tools: Optional[Dict] = None,
 ) -> ApiContext:
     model = args.model
     prefix = re.split("-|/", model)[0]
@@ -593,4 +601,6 @@ def make_context(
         case _:
             raise ValueError(f"Unknown model: {model}")
     name = args.display_name or make_display_name(provider, model)
-    return ApiContext(session, index, name, func, args, prompt or "", files or [])
+    return ApiContext(
+        session, index, name, func, args, prompt or "", files or [], tools
+    )
