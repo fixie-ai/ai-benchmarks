@@ -40,6 +40,18 @@ class InputFile:
     data: bytes
 
     @property
+    def is_image(self):
+        return self.mime_type.startswith("image/")
+
+    @property
+    def is_audio(self):
+        return self.mime_type.startswith("audio/")
+
+    @property
+    def is_video(self):
+        return self.mime_type.startswith("video/")
+
+    @property
     def base64_data(self):
         return base64.b64encode(self.data).decode("utf-8")
 
@@ -428,6 +440,7 @@ async def gemini_chat(ctx: ApiContext) -> ApiResult:
         "safetySettings": [
             {"category": category, "threshold": "BLOCK_NONE"}
             for category in harm_categories
+            if not ctx.files or ctx.files[0].is_image
         ],
     }
     return await post(ctx, url, headers, data, chunk_gen)
