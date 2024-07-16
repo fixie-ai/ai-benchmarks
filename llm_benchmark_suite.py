@@ -23,6 +23,8 @@ GPT_4_1106_PREVIEW = "gpt-4-1106-preview"
 GPT_35_TURBO = "gpt-3.5-turbo"
 GPT_35_TURBO_0125 = "gpt-3.5-turbo-0125"
 GPT_35_TURBO_1106 = "gpt-3.5-turbo-1106"
+GEMINI_1_5_PRO = "gemini-1.5-pro"
+GEMINI_1_5_FLASH = "gemini-1.5-flash"
 LLAMA_3_70B_CHAT = "llama-3-70b-chat"
 LLAMA_3_8B_CHAT = "llama-3-8b-chat"
 MIXTRAL_8X22B_INSTRUCT = "mixtral-8x22b-instruct"
@@ -288,8 +290,8 @@ def _text_models():
         _Llm("command-light"),
         # Gemini
         _Llm("gemini-pro"),
-        _Llm("gemini-1.5-pro-preview-0514"),
-        _Llm("gemini-1.5-flash-preview-0514"),
+        _Llm(GEMINI_1_5_PRO),
+        _Llm(GEMINI_1_5_FLASH),
         # Mistral 8x22b
         # _Llm(
         #    "mistral-large",  # is this the same?
@@ -354,8 +356,8 @@ def _image_models():
         _Llm("claude-3-5-sonnet-20240620"),
         _Llm("claude-3-sonnet-20240229"),
         _Llm("gemini-pro-vision"),
-        _Llm("gemini-1.5-pro-preview-0514"),
-        _Llm("gemini-1.5-flash-preview-0514"),
+        _Llm(GEMINI_1_5_PRO),
+        _Llm(GEMINI_1_5_FLASH),
         _FireworksLlm("accounts/fireworks/models/firellava-13b", "firellava-13b"),
     ]
 
@@ -363,8 +365,8 @@ def _image_models():
 def _audio_models():
     return [
         # _Llm(GPT_4O), doesn't support audio yet
-        # _Llm("gemini-1.5-pro-preview-0514"), 400ing right now
-        # _Llm("gemini-1.5-flash-preview-0514"), 400ing right now
+        _Llm(GEMINI_1_5_PRO),
+        _Llm(GEMINI_1_5_FLASH),
         _Llm(
             "fixie-ai/ultravox-v0.2",
             base_url="https://ultravox.api.fixie.ai/v1",
@@ -382,8 +384,8 @@ def _audio_models():
 def _video_models():
     return [
         # _Llm(GPT_4O),
-        _Llm("gemini-1.5-pro-preview-0514"),
-        _Llm("gemini-1.5-flash-preview-0514"),
+        _Llm(GEMINI_1_5_PRO),
+        _Llm(GEMINI_1_5_FLASH),
     ]
 
 
