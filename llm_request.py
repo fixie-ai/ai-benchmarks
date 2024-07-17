@@ -217,7 +217,7 @@ def make_openai_chat_body(ctx: ApiContext, **kwargs):
         "model": ctx.model or None,
         "max_tokens": ctx.max_tokens,
         "temperature": ctx.temperature,
-        # "stream": True,
+        "stream": True,
     }
     for key, value in kwargs.items():
         body[key] = value
@@ -240,10 +240,17 @@ async def openai_chunk_gen(response) -> TokenGenerator:
     tokens = 0
     async for chunk in make_sse_chunk_gen(response):
         if chunk["choices"]:
-            delta_content = chunk["choices"][0]["delta"].get("content")
+            delta = chunk["choices"][0]["delta"]
+            delta_content = delta.get("content")
+            delta_tool = delta.get("tool_calls")
             if delta_content:
                 tokens += 1
                 yield delta_content
+            elif delta_tool:
+                function = delta_tool[0]["function"]
+                token = function.get("name") or function.get("arguments")
+                if token:
+                    yield token.strip()
         usage = chunk.get("usage")
         if usage:
             num_input_tokens = usage.get("prompt_tokens")
