@@ -83,6 +83,7 @@ class ApiContext:
     detail: Optional[str] = None
     api_key: Optional[str] = None
     base_url: Optional[str] = None
+    peft: Optional[str] = None
 
     def __init__(self, session, index, name, func, args, prompt, files):
         self.session = session
@@ -97,6 +98,7 @@ class ApiContext:
         self.max_tokens = args.max_tokens
         self.api_key = args.api_key
         self.base_url = args.base_url
+        self.peft = args.peft
         self.metrics = ApiMetrics(model=self.name)
 
     async def run(self, on_token: Optional[Callable[["ApiContext", str], None]] = None):
@@ -252,7 +254,10 @@ async def openai_chunk_gen(response) -> TokenGenerator:
 
 async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiResult:
     url, headers = make_openai_url_and_headers(ctx, path)
-    data = make_openai_chat_body(ctx, messages=make_openai_messages(ctx))
+    kwargs = {"messages": make_openai_messages(ctx)}
+    if ctx.peft:
+        kwargs["peft"] = ctx.peft
+    data = make_openai_chat_body(ctx, **kwargs)
     return await post(ctx, url, headers, data, openai_chunk_gen)
 
 
