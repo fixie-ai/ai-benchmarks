@@ -17,6 +17,7 @@ DEFAULT_DISPLAY_LENGTH = 64
 DEFAULT_GCS_BUCKET = "thefastest-data"
 
 GPT_4O = "gpt-4o"
+GPT_4O_MINI = "gpt-4o-mini"
 GPT_4_TURBO = "gpt-4-turbo"
 GPT_4_0125_PREVIEW = "gpt-4-0125-preview"
 GPT_4_1106_PREVIEW = "gpt-4-1106-preview"
@@ -269,6 +270,7 @@ def _text_models():
             api_key=os.getenv("AZURE_NCENTRALUS_OPENAI_API_KEY"),
             base_url="https://fixie-centralus.openai.azure.com",
         ),
+        _Llm(GPT_4O_MINI),
         # GPT-4 Turbo
         _Llm(GPT_4_TURBO),
         # GPT-4 Turbo Previews
@@ -408,6 +410,7 @@ def _text_models():
 def _image_models():
     return [
         _Llm(GPT_4O),
+        _Llm(GPT_4O_MINI),
         _Llm(GPT_4_TURBO),
         _Llm("gpt-4-vision-preview", base_url="https://fixie-westus.openai.azure.com"),
         _Llm("claude-3-opus-20240229"),
