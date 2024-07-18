@@ -306,6 +306,7 @@ async def anthropic_chat(ctx: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> TokenGenerator:
         tokens = 0
         async for chunk in make_sse_chunk_gen(response):
+            print("chunk", chunk)
             delta = chunk.get("delta")
             if delta and delta.get("type") == "text_delta":
                 tokens += 1
@@ -324,8 +325,13 @@ async def anthropic_chat(ctx: ApiContext) -> ApiResult:
         "anthropic-version": "2023-06-01",
         "anthropic-beta": "messages-2023-12-15",
     }
+    # Anthropic's schema is slightly different than OpenAI's.
+    tools = [x["function"] for x in ctx.tools]
+    for tool in tools:
+        tool["input_schema"] = tool["parameters"]
+        del tool["parameters"]
     data = make_openai_chat_body(
-        ctx, messages=make_anthropic_messages(ctx.prompt, ctx.files)
+        ctx, messages=make_anthropic_messages(ctx.prompt, ctx.files), tools=tools
     )
     return await post(ctx, url, headers, data, chunk_gen)
 
