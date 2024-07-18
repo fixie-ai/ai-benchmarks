@@ -52,6 +52,11 @@ parser.add_argument(
     help="Display name for the model",
 )
 parser.add_argument(
+    "--peft",
+    type=str,
+    help="PEFT adapter to use",
+)
+parser.add_argument(
     "--temperature",
     "-t",
     type=float,

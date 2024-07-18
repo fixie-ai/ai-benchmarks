@@ -17,6 +17,7 @@ DEFAULT_DISPLAY_LENGTH = 64
 DEFAULT_GCS_BUCKET = "thefastest-data"
 
 GPT_4O = "gpt-4o"
+GPT_4O_MINI = "gpt-4o-mini"
 GPT_4_TURBO = "gpt-4-turbo"
 GPT_4_0125_PREVIEW = "gpt-4-0125-preview"
 GPT_4_1106_PREVIEW = "gpt-4-1106-preview"
@@ -26,9 +27,13 @@ GPT_35_TURBO_1106 = "gpt-3.5-turbo-1106"
 GEMINI_1_5_PRO = "gemini-1.5-pro"
 GEMINI_1_5_FLASH = "gemini-1.5-flash"
 LLAMA_3_70B_CHAT = "llama-3-70b-chat"
+LLAMA_3_70B_CHAT_FP8 = "llama-3-70b-chat-fp8"
 LLAMA_3_8B_CHAT = "llama-3-8b-chat"
+LLAMA_3_8B_CHAT_FP8 = "llama-3-8b-chat-fp8"
 MIXTRAL_8X22B_INSTRUCT = "mixtral-8x22b-instruct"
+MIXTRAL_8X22B_INSTRUCT_FP8 = "mixtral-8x22b-instruct-fp8"
 MIXTRAL_8X7B_INSTRUCT = "mixtral-8x7b-instruct"
+MIXTRAL_8X7B_INSTRUCT_FP8 = "mixtral-8x7b-instruct-fp8"
 PHI_2 = "phi-2"
 
 
@@ -89,7 +94,13 @@ class _Llm:
     from that script, rather than having to duplicate it here.
     """
 
-    def __init__(self, model: str, display_name: Optional[str] = None, **kwargs):
+    def __init__(
+        self,
+        model: str,
+        display_name: Optional[str] = None,
+        peft: Optional[str] = None,
+        **kwargs,
+    ):
         self.args = {
             "format": "none",
             **kwargs,
@@ -98,6 +109,8 @@ class _Llm:
             self.args["model"] = model
         if display_name:
             self.args["display_name"] = display_name
+        if peft:
+            self.args["peft"] = peft
 
     async def run(self, pass_argv: List[str], spread: float) -> asyncio.Task:
         if spread:
@@ -176,15 +189,33 @@ class _GroqLlm(_Llm):
         )
 
 
+class _NvidiaLlm(_Llm):
+    """See https://github.com/NVIDIA/NeMo/tree/main/examples/nlp/text_generation"""
+
+    def __init__(self, model: str, display_model: Optional[str] = None):
+        super().__init__(
+            model,
+            "nvidia.com/" + (display_model or model),
+            api_key=os.getenv("NVIDIA_API_KEY"),
+            base_url="https://integrate.api.nvidia.com/v1",
+        )
+
+
 class _OctoLlm(_Llm):
     """See https://octo.ai/docs/getting-started/inference-models#serverless-endpoints"""
 
-    def __init__(self, model: str, display_model: Optional[str] = None):
+    def __init__(
+        self,
+        model: str,
+        display_model: Optional[str] = None,
+        peft: Optional[str] = None,
+    ):
         super().__init__(
             model,
             "octo.ai/" + (display_model or model),
             api_key=os.getenv("OCTOML_API_KEY"),
             base_url="https://text.octoai.run/v1",
+            peft=peft,
         )
 
 
@@ -239,6 +270,7 @@ def _text_models():
             api_key=os.getenv("AZURE_NCENTRALUS_OPENAI_API_KEY"),
             base_url="https://fixie-centralus.openai.azure.com",
         ),
+        _Llm(GPT_4O_MINI),
         # GPT-4 Turbo
         _Llm(GPT_4_TURBO),
         # GPT-4 Turbo Previews
@@ -301,8 +333,14 @@ def _text_models():
         _AnyscaleLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         _DeepInfraLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         _FireworksLlm(
-            "accounts/fireworks/models/mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT
+            "accounts/fireworks/models/mixtral-8x22b-instruct",
+            MIXTRAL_8X22B_INSTRUCT_FP8,
         ),
+        _FireworksLlm(
+            "accounts/fireworks/models/mixtral-8x22b-instruct-hf",
+            MIXTRAL_8X22B_INSTRUCT,
+        ),
+        _NvidiaLlm("mistralai/mixtral-8x22b-instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         _OctoLlm("mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         # Mistral 8x7b
@@ -310,9 +348,13 @@ def _text_models():
         _DatabricksLlm("databricks-mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _DeepInfraLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _FireworksLlm(
-            "accounts/fireworks/models/mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT
+            "accounts/fireworks/models/mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT_FP8
+        ),
+        _FireworksLlm(
+            "accounts/fireworks/models/mixtral-8x7b-instruct-hf", MIXTRAL_8X7B_INSTRUCT
         ),
         _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT),
+        _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _OctoLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3 70b
@@ -320,13 +362,22 @@ def _text_models():
         _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _DeepInfraLlm("meta-llama/Meta-Llama-3-70B-Instruct", LLAMA_3_70B_CHAT),
         _FireworksLlm(
-            "accounts/fireworks/models/llama-v3-70b-instruct", LLAMA_3_70B_CHAT
+            "accounts/fireworks/models/llama-v3-70b-instruct", LLAMA_3_70B_CHAT_FP8
         ),
-        _GroqLlm("llama3-70b-8192", LLAMA_3_70B_CHAT),
+        _FireworksLlm(
+            "accounts/fireworks/models/llama-v3-70b-instruct-hf", LLAMA_3_70B_CHAT
+        ),
+        _GroqLlm("llama3-70b-8192", LLAMA_3_70B_CHAT_FP8),
+        _NvidiaLlm("meta/llama3-70b-instruct", LLAMA_3_70B_CHAT),
         _OctoLlm("meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _OvhLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
+        # Finetunes on Llama 3 70b
+        _FireworksLlm(
+            "accounts/fixie/models/1b68538a063a49e2ae4513d4ef186e9a",
+            LLAMA_3_70B_CHAT + "-lora-1b68",
+        ),
         # Function calling with Llama 3 70b
         _FireworksLlm("accounts/fireworks/models/firefunction-v2", "firefunction-v2"),
         # Llama 3 8b
@@ -334,10 +385,19 @@ def _text_models():
         _CloudflareLlm("@cf/meta/llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _DeepInfraLlm("meta-llama/Meta-Llama-3-8B-Instruct", LLAMA_3_8B_CHAT),
         _FireworksLlm(
-            "accounts/fireworks/models/llama-v3-8b-instruct", LLAMA_3_8B_CHAT
+            "accounts/fireworks/models/llama-v3-8b-instruct", LLAMA_3_8B_CHAT_FP8
         ),
-        _GroqLlm("llama3-8b-8192", LLAMA_3_8B_CHAT),
+        _FireworksLlm(
+            "accounts/fireworks/models/llama-v3-8b-instruct-hf", LLAMA_3_8B_CHAT
+        ),
+        _GroqLlm("llama3-8b-8192", LLAMA_3_8B_CHAT_FP8),
+        _NvidiaLlm("meta/llama3-8b-instruct", LLAMA_3_8B_CHAT),
         _OctoLlm("meta-llama-3-8b-instruct", LLAMA_3_8B_CHAT),
+        _OctoLlm(
+            "openpipe-llama-3-8b-32k",
+            "openpipe-llama-3-8b-32k-lora-01j3",
+            peft="asset_01j318x0k2f7bv3nc5np6byn7s",
+        ),
         _PerplexityLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         _OvhLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
@@ -350,6 +410,7 @@ def _text_models():
 def _image_models():
     return [
         _Llm(GPT_4O),
+        _Llm(GPT_4O_MINI),
         _Llm(GPT_4_TURBO),
         _Llm("gpt-4-vision-preview", base_url="https://fixie-westus.openai.azure.com"),
         _Llm("claude-3-opus-20240229"),

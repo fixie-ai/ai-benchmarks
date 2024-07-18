@@ -84,6 +84,7 @@ class ApiContext:
     api_key: Optional[str] = None
     base_url: Optional[str] = None
     tools: Optional[Dict] = None
+    peft: Optional[str] = None
 
     def __init__(self, session, index, name, func, args, prompt, files, tools):
         self.session = session
@@ -93,12 +94,13 @@ class ApiContext:
         self.model = args.model
         self.prompt = prompt
         self.files = files
-        self.tools = tools
         self.detail = args.detail
         self.temperature = args.temperature
         self.max_tokens = args.max_tokens
         self.api_key = args.api_key
         self.base_url = args.base_url
+        self.tools = tools
+        self.peft = args.peft
         self.metrics = ApiMetrics(model=self.name)
 
     async def run(self, on_token: Optional[Callable[["ApiContext", str], None]] = None):
@@ -266,6 +268,8 @@ async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiRe
     if ctx.tools:
         kwargs["tools"] = ctx.tools
         kwargs["tool_choice"] = "auto"
+    if ctx.peft:
+        kwargs["peft"] = ctx.peft
     data = make_openai_chat_body(ctx, **kwargs)
     return await post(ctx, url, headers, data, openai_chunk_gen)
 
