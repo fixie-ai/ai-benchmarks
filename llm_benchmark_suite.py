@@ -188,6 +188,18 @@ class _GroqLlm(_Llm):
         )
 
 
+class _NvidiaLlm(_Llm):
+    """See https://github.com/NVIDIA/NeMo/tree/main/examples/nlp/text_generation"""
+
+    def __init__(self, model: str, display_model: Optional[str] = None):
+        super().__init__(
+            model,
+            "nvidia.com/" + (display_model or model),
+            api_key=os.getenv("NVIDIA_API_KEY"),
+            base_url="https://integrate.api.nvidia.com/v1",
+        )
+
+
 class _OctoLlm(_Llm):
     """See https://octo.ai/docs/getting-started/inference-models#serverless-endpoints"""
 
@@ -326,6 +338,7 @@ def _text_models():
             "accounts/fireworks/models/mixtral-8x22b-instruct-hf",
             MIXTRAL_8X22B_INSTRUCT,
         ),
+        _NvidiaLlm("mistralai/mixtral-8x22b-instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         _OctoLlm("mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         # Mistral 8x7b
@@ -339,6 +352,7 @@ def _text_models():
             "accounts/fireworks/models/mixtral-8x7b-instruct-hf", MIXTRAL_8X7B_INSTRUCT
         ),
         _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT),
+        _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _OctoLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3 70b
@@ -352,6 +366,7 @@ def _text_models():
             "accounts/fireworks/models/llama-v3-70b-instruct-hf", LLAMA_3_70B_CHAT
         ),
         _GroqLlm("llama3-70b-8192", LLAMA_3_70B_CHAT_FP8),
+        _NvidiaLlm("meta/llama3-70b-instruct", LLAMA_3_70B_CHAT),
         _OctoLlm("meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
@@ -374,6 +389,7 @@ def _text_models():
             "accounts/fireworks/models/llama-v3-8b-instruct-hf", LLAMA_3_8B_CHAT
         ),
         _GroqLlm("llama3-8b-8192", LLAMA_3_8B_CHAT_FP8),
+        _NvidiaLlm("meta/llama3-8b-instruct", LLAMA_3_8B_CHAT),
         _OctoLlm("meta-llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _OctoLlm(
             "openpipe-llama-3-8b-32k",
