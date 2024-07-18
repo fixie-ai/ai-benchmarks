@@ -93,7 +93,13 @@ class _Llm:
     from that script, rather than having to duplicate it here.
     """
 
-    def __init__(self, model: str, display_name: Optional[str] = None, **kwargs):
+    def __init__(
+        self,
+        model: str,
+        display_name: Optional[str] = None,
+        peft: Optional[str] = None,
+        **kwargs,
+    ):
         self.args = {
             "format": "none",
             **kwargs,
@@ -102,6 +108,8 @@ class _Llm:
             self.args["model"] = model
         if display_name:
             self.args["display_name"] = display_name
+        if peft:
+            self.args["peft"] = peft
 
     async def run(self, pass_argv: List[str], spread: float) -> asyncio.Task:
         if spread:
@@ -183,12 +191,18 @@ class _GroqLlm(_Llm):
 class _OctoLlm(_Llm):
     """See https://octo.ai/docs/getting-started/inference-models#serverless-endpoints"""
 
-    def __init__(self, model: str, display_model: Optional[str] = None):
+    def __init__(
+        self,
+        model: str,
+        display_model: Optional[str] = None,
+        peft: Optional[str] = None,
+    ):
         super().__init__(
             model,
             "octo.ai/" + (display_model or model),
             api_key=os.getenv("OCTOML_API_KEY"),
             base_url="https://text.octoai.run/v1",
+            peft=peft,
         )
 
 
@@ -361,6 +375,11 @@ def _text_models():
         ),
         _GroqLlm("llama3-8b-8192", LLAMA_3_8B_CHAT_FP8),
         _OctoLlm("meta-llama-3-8b-instruct", LLAMA_3_8B_CHAT),
+        _OctoLlm(
+            "openpipe-llama-3-8b-32k",
+            "openpipe-llama-3-8b-32k-lora-01j3",
+            peft="asset_01j318x0k2f7bv3nc5np6byn7s",
+        ),
         _PerplexityLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         _OvhLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
