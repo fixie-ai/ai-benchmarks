@@ -336,10 +336,11 @@ def _text_models():
             "accounts/fireworks/models/mixtral-8x22b-instruct",
             MIXTRAL_8X22B_INSTRUCT_FP8,
         ),
-        _FireworksLlm(
-            "accounts/fireworks/models/mixtral-8x22b-instruct-hf",
-            MIXTRAL_8X22B_INSTRUCT,
-        ),
+        # "Undeployed"
+        # _FireworksLlm(
+        #    "accounts/fireworks/models/mixtral-8x22b-instruct-hf",
+        #    MIXTRAL_8X22B_INSTRUCT,
+        # ),
         _NvidiaLlm("mistralai/mixtral-8x22b-instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         _OctoLlm("mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
