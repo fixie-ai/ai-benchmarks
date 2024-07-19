@@ -248,7 +248,7 @@ async def main(args: argparse.Namespace):
                 print(f"API Call {ctx.index}: {r.error}")
         print("")
 
-    metrics = [ctx.metrics for ctx in contexts]
+    metrics = [ctx.metrics for ctx in contexts if not ctx.metrics.error]
     metrics.sort(key=lambda x: x.ttft)
     r = metrics[0]
     if args.format == FMT_DEFAULT:
