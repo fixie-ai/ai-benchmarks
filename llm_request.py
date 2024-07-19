@@ -325,7 +325,7 @@ async def anthropic_chat(ctx: ApiContext) -> ApiResult:
         "anthropic-beta": "messages-2023-12-15",
     }
     # Anthropic's schema is slightly different than OpenAI's.
-    tools = [x["function"] for x in ctx.tools]
+    tools = [t["function"].copy() for t in ctx.tools]
     for tool in tools:
         tool["input_schema"] = tool["parameters"]
         del tool["parameters"]
