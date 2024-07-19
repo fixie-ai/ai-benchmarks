@@ -28,8 +28,10 @@ GEMINI_1_5_PRO = "gemini-1.5-pro"
 GEMINI_1_5_FLASH = "gemini-1.5-flash"
 LLAMA_3_70B_CHAT = "llama-3-70b-chat"
 LLAMA_3_70B_CHAT_FP8 = "llama-3-70b-chat-fp8"
+LLAMA_3_70B_CHAT_FP4 = "llama-3-70b-chat-fp4"
 LLAMA_3_8B_CHAT = "llama-3-8b-chat"
 LLAMA_3_8B_CHAT_FP8 = "llama-3-8b-chat-fp8"
+LLAMA_3_8B_CHAT_FP4 = "llama-3-8b-chat-fp4"
 MIXTRAL_8X22B_INSTRUCT = "mixtral-8x22b-instruct"
 MIXTRAL_8X22B_INSTRUCT_FP8 = "mixtral-8x22b-instruct-fp8"
 MIXTRAL_8X7B_INSTRUCT = "mixtral-8x7b-instruct"
@@ -374,11 +376,9 @@ def _text_models():
         _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _TogetherLlm(
-            "meta-llama/Meta-Llama-3-70B-Instruct-Lite", LLAMA_3_70B_CHAT + "-lite"
+            "meta-llama/Meta-Llama-3-70B-Instruct-Turbo", LLAMA_3_70B_CHAT_FP8
         ),
-        _TogetherLlm(
-            "meta-llama/Meta-Llama-3-70B-Instruct-Turbo", LLAMA_3_70B_CHAT + "-turbo"
-        ),
+        _TogetherLlm("meta-llama/Meta-Llama-3-70B-Instruct-Lite", LLAMA_3_70B_CHAT_FP4),
         _OvhLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         # Finetunes on Llama 3 70b
         _FireworksLlm(
@@ -405,12 +405,8 @@ def _text_models():
         ),
         _PerplexityLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
-        _TogetherLlm(
-            "meta-llama/Meta-Llama-3-8B-Instruct-Lite", LLAMA_3_8B_CHAT + "-lite"
-        ),
-        _TogetherLlm(
-            "meta-llama/Meta-Llama-3-8B-Instruct-Turbo", LLAMA_3_8B_CHAT + "-turbo"
-        ),
+        _TogetherLlm("meta-llama/Meta-Llama-3-8B-Instruct-Turbo", LLAMA_3_8B_CHAT_FP8),
+        _TogetherLlm("meta-llama/Meta-Llama-3-8B-Instruct-Lite", LLAMA_3_8B_CHAT_FP4),
         _OvhLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         # Phi-2
         _CloudflareLlm("@cf/microsoft/phi-2", PHI_2),
