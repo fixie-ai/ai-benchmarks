@@ -78,12 +78,12 @@ class ApiContext:
     model: str
     prompt: str
     files: List[InputFile]
+    tools: List[Dict]
     temperature: float
     max_tokens: int
     detail: Optional[str] = None
     api_key: Optional[str] = None
     base_url: Optional[str] = None
-    tools: Optional[Dict] = None
     peft: Optional[str] = None
 
     def __init__(self, session, index, name, func, args, prompt, files, tools):
@@ -94,12 +94,12 @@ class ApiContext:
         self.model = args.model
         self.prompt = prompt
         self.files = files
+        self.tools = tools
         self.detail = args.detail
         self.temperature = args.temperature
         self.max_tokens = args.max_tokens
         self.api_key = args.api_key
         self.base_url = args.base_url
-        self.tools = tools
         self.peft = args.peft
         self.metrics = ApiMetrics(model=self.name)
 
@@ -306,7 +306,6 @@ async def anthropic_chat(ctx: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> TokenGenerator:
         tokens = 0
         async for chunk in make_sse_chunk_gen(response):
-            print("chunk", chunk)
             delta = chunk.get("delta")
             if delta and delta.get("type") == "text_delta":
                 tokens += 1
@@ -581,7 +580,7 @@ def make_context(
     args: argparse.Namespace,
     prompt: Optional[str] = None,
     files: Optional[List[InputFile]] = None,
-    tools: Optional[Dict] = None,
+    tools: Optional[List[Dict]] = None,
 ) -> ApiContext:
     model = args.model
     prefix = re.split("-|/", model)[0]
@@ -619,5 +618,5 @@ def make_context(
             raise ValueError(f"Unknown model: {model}")
     name = args.display_name or make_display_name(provider, model)
     return ApiContext(
-        session, index, name, func, args, prompt or "", files or [], tools
+        session, index, name, func, args, prompt or "", files or [], tools or []
     )

@@ -484,15 +484,11 @@ def _get_models(mode: str, filter: Optional[str] = None):
 
 def _get_prompt(mode: str) -> List[str]:
     if mode == "text":
-        return [
-            "I have a flight booked for July 14, 2024 with American Airlines, flight number AA100. Can you check its status for me?",
-            "--tools",
-            "media/tools/flights.json",
-        ]
+        return ["Write a nonet about a sunset."]
     elif mode == "tools":
         return [
-            "I have a flight booked for July 14, 2024 with American Airlines, flight number AA100. Can you check its status for me? ONLY GENERATE THE FUNCTION CALL.",
-            "--tools",
+            "I have a flight booked for July 14, 2024, the flight number is AA100. Can you check its status for me?",
+            "--tool",
             "media/tools/flights.json",
         ]
     elif mode == "image":

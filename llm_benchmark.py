@@ -34,8 +34,9 @@ parser.add_argument(
     help="Multimedia file(s) to include with the prompt",
 )
 parser.add_argument(
-    "--tools",
+    "--tool",
     type=argparse.FileType("r"),
+    action="append",
     help="JSON file defining tools that can be used",
 )
 parser.add_argument(
@@ -179,7 +180,7 @@ async def main(args: argparse.Namespace):
         return None
 
     # Run the queries.
-    tools = json.load(args.tools) if args.tools else None
+    tools = [json.load(tool) for tool in args.tool or []]
     files = [llm_request.InputFile.from_file(file) for file in args.file or []]
     timeout = aiohttp.ClientTimeout(total=args.timeout)
     trace_configs = [LlmTraceConfig()] if args.verbose else []
