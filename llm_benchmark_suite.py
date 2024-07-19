@@ -354,7 +354,7 @@ def _text_models():
         _FireworksLlm(
             "accounts/fireworks/models/mixtral-8x7b-instruct-hf", MIXTRAL_8X7B_INSTRUCT
         ),
-        _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT),
+        _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT_FP8),
         _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _OctoLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
