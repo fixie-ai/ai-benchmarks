@@ -373,6 +373,12 @@ def _text_models():
         _OctoLlm("meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
+        _TogetherLlm(
+            "meta-llama/Meta-Llama-3-70B-Instruct-Lite", LLAMA_3_70B_CHAT + "-lite"
+        ),
+        _TogetherLlm(
+            "meta-llama/Meta-Llama-3-70B-Instruct-Turbo", LLAMA_3_70B_CHAT + "-turbo"
+        ),
         _OvhLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         # Finetunes on Llama 3 70b
         _FireworksLlm(
@@ -399,6 +405,12 @@ def _text_models():
         ),
         _PerplexityLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
+        _TogetherLlm(
+            "meta-llama/Meta-Llama-3-8B-Instruct-Lite", LLAMA_3_8B_CHAT + "-lite"
+        ),
+        _TogetherLlm(
+            "meta-llama/Meta-Llama-3-8B-Instruct-Turbo", LLAMA_3_8B_CHAT + "-turbo"
+        ),
         _OvhLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         # Phi-2
         _CloudflareLlm("@cf/microsoft/phi-2", PHI_2),
