@@ -408,6 +408,11 @@ def _text_models():
         _TogetherLlm("meta-llama/Meta-Llama-3-8B-Instruct-Turbo", LLAMA_3_8B_CHAT_FP8),
         _TogetherLlm("meta-llama/Meta-Llama-3-8B-Instruct-Lite", LLAMA_3_8B_CHAT_FP4),
         _OvhLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
+        # Fine-tunes on Llama 3 8b
+        _FireworksLlm(
+            "accounts/fixie/models/8ab03ea85d2a4b9da659ce63db36a9b1",
+            LLAMA_3_8B_CHAT + "-lora-8ab0",
+        ),
         # Phi-2
         _CloudflareLlm("@cf/microsoft/phi-2", PHI_2),
         _TogetherLlm("microsoft/phi-2", PHI_2),
