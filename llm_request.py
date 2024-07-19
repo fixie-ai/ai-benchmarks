@@ -86,7 +86,7 @@ class ApiContext:
     tools: Optional[Dict] = None
     peft: Optional[str] = None
 
-    def __init__(self, session, index, name, func, args, prompt, files):
+    def __init__(self, session, index, name, func, args, prompt, files, tools):
         self.session = session
         self.index = index
         self.name = name
@@ -99,7 +99,7 @@ class ApiContext:
         self.max_tokens = args.max_tokens
         self.api_key = args.api_key
         self.base_url = args.base_url
-        self.tools = args.tools
+        self.tools = tools
         self.peft = args.peft
         self.metrics = ApiMetrics(model=self.name)
 
@@ -126,7 +126,7 @@ class ApiContext:
                         on_token(self, "")
             else:
                 self.metrics.error = f"{response.status} {response.reason}"
-                # print(await response.text())
+                print(await response.text())
         except TimeoutError:
             self.metrics.error = "Timeout"
         except aiohttp.ClientError as e:
@@ -581,6 +581,7 @@ def make_context(
     args: argparse.Namespace,
     prompt: Optional[str] = None,
     files: Optional[List[InputFile]] = None,
+    tools: Optional[Dict] = None,
 ) -> ApiContext:
     model = args.model
     prefix = re.split("-|/", model)[0]
@@ -617,4 +618,6 @@ def make_context(
         case _:
             raise ValueError(f"Unknown model: {model}")
     name = args.display_name or make_display_name(provider, model)
-    return ApiContext(session, index, name, func, args, prompt or "", files or [])
+    return ApiContext(
+        session, index, name, func, args, prompt or "", files or [], tools
+    )
