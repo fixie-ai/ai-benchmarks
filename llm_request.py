@@ -125,8 +125,8 @@ class ApiContext:
                     if on_token:
                         on_token(self, "")
             else:
-                self.metrics.error = f"{response.status} {response.reason}"
-                print(await response.text())
+                text = await response.text()
+                self.metrics.error = f"{response.status} {response.reason} {text}"
         except TimeoutError:
             self.metrics.error = "Timeout"
         except aiohttp.ClientError as e:
