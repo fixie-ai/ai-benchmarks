@@ -1,0 +1,22 @@
+{
+  "type": "function",
+  "function": {
+    "name": "get_flight_status",
+    "description": "Get the current status of a flight",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "flight_number": {
+          "type": "string",
+          "description": "The flight number, e.g., AA100"
+        },
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "The date of the flight, e.g., 2024-06-17"
+        }
+      },
+      "required": ["flight_number", "date"]
+    }
+  }
+}

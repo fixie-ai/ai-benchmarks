@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import asyncio
+import json
 import time
 from typing import List
 
@@ -31,6 +32,12 @@ parser.add_argument(
     type=str,
     action="append",
     help="Multimedia file(s) to include with the prompt",
+)
+parser.add_argument(
+    "--tool",
+    type=argparse.FileType("r"),
+    action="append",
+    help="JSON file defining tools that can be used",
 )
 parser.add_argument(
     "--model",
@@ -173,6 +180,7 @@ async def main(args: argparse.Namespace):
         return None
 
     # Run the queries.
+    tools = [json.load(tool) for tool in args.tool or []]
     files = [llm_request.InputFile.from_file(file) for file in args.file or []]
     timeout = aiohttp.ClientTimeout(total=args.timeout)
     trace_configs = [LlmTraceConfig()] if args.verbose else []
@@ -182,7 +190,7 @@ async def main(args: argparse.Namespace):
     ) as session:
         init_ctx = llm_request.make_context(session, -1, args)
         contexts = [
-            llm_request.make_context(session, i, args, args.prompt, files)
+            llm_request.make_context(session, i, args, args.prompt, files, tools)
             for i in range(args.num_requests)
         ]
         chosen = None

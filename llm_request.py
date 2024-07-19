@@ -78,6 +78,7 @@ class ApiContext:
     model: str
     prompt: str
     files: List[InputFile]
+    tools: List[Dict]
     temperature: float
     max_tokens: int
     detail: Optional[str] = None
@@ -85,7 +86,7 @@ class ApiContext:
     base_url: Optional[str] = None
     peft: Optional[str] = None
 
-    def __init__(self, session, index, name, func, args, prompt, files):
+    def __init__(self, session, index, name, func, args, prompt, files, tools):
         self.session = session
         self.index = index
         self.name = name
@@ -93,6 +94,7 @@ class ApiContext:
         self.model = args.model
         self.prompt = prompt
         self.files = files
+        self.tools = tools
         self.detail = args.detail
         self.temperature = args.temperature
         self.max_tokens = args.max_tokens
@@ -123,7 +125,8 @@ class ApiContext:
                     if on_token:
                         on_token(self, "")
             else:
-                self.metrics.error = f"{response.status} {response.reason}"
+                text = await response.text()
+                self.metrics.error = f"{response.status} {response.reason} {text}"
         except TimeoutError:
             self.metrics.error = "Timeout"
         except aiohttp.ClientError as e:
@@ -239,10 +242,17 @@ async def openai_chunk_gen(response) -> TokenGenerator:
     tokens = 0
     async for chunk in make_sse_chunk_gen(response):
         if chunk["choices"]:
-            delta_content = chunk["choices"][0]["delta"].get("content")
+            delta = chunk["choices"][0]["delta"]
+            delta_content = delta.get("content")
+            delta_tool = delta.get("tool_calls")
             if delta_content:
                 tokens += 1
                 yield delta_content
+            elif delta_tool:
+                function = delta_tool[0]["function"]
+                token = function.get("name") or function.get("arguments")
+                if token:
+                    yield token.strip()
         usage = chunk.get("usage")
         if usage:
             num_input_tokens = usage.get("prompt_tokens")
@@ -255,6 +265,9 @@ async def openai_chunk_gen(response) -> TokenGenerator:
 async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiResult:
     url, headers = make_openai_url_and_headers(ctx, path)
     kwargs = {"messages": make_openai_messages(ctx)}
+    if ctx.tools:
+        kwargs["tools"] = ctx.tools
+        kwargs["tool_choice"] = "auto"
     if ctx.peft:
         kwargs["peft"] = ctx.peft
     data = make_openai_chat_body(ctx, **kwargs)
@@ -311,8 +324,13 @@ async def anthropic_chat(ctx: ApiContext) -> ApiResult:
         "anthropic-version": "2023-06-01",
         "anthropic-beta": "messages-2023-12-15",
     }
+    # Anthropic's schema is slightly different than OpenAI's.
+    tools = [x["function"] for x in ctx.tools]
+    for tool in tools:
+        tool["input_schema"] = tool["parameters"]
+        del tool["parameters"]
     data = make_openai_chat_body(
-        ctx, messages=make_anthropic_messages(ctx.prompt, ctx.files)
+        ctx, messages=make_anthropic_messages(ctx.prompt, ctx.files), tools=tools
     )
     return await post(ctx, url, headers, data, chunk_gen)
 
@@ -562,6 +580,7 @@ def make_context(
     args: argparse.Namespace,
     prompt: Optional[str] = None,
     files: Optional[List[InputFile]] = None,
+    tools: Optional[List[Dict]] = None,
 ) -> ApiContext:
     model = args.model
     prefix = re.split("-|/", model)[0]
@@ -598,4 +617,6 @@ def make_context(
         case _:
             raise ValueError(f"Unknown model: {model}")
     name = args.display_name or make_display_name(provider, model)
-    return ApiContext(session, index, name, func, args, prompt or "", files or [])
+    return ApiContext(
+        session, index, name, func, args, prompt or "", files or [], tools or []
+    )

@@ -48,7 +48,7 @@ parser.add_argument(
 parser.add_argument(
     "--mode",
     "-m",
-    choices=["text", "image", "audio", "video"],
+    choices=["text", "tools", "image", "audio", "video"],
     default="text",
     help="Mode to run benchmarks for",
 )
@@ -336,10 +336,11 @@ def _text_models():
             "accounts/fireworks/models/mixtral-8x22b-instruct",
             MIXTRAL_8X22B_INSTRUCT_FP8,
         ),
-        _FireworksLlm(
-            "accounts/fireworks/models/mixtral-8x22b-instruct-hf",
-            MIXTRAL_8X22B_INSTRUCT,
-        ),
+        # "Undeployed"
+        # _FireworksLlm(
+        #    "accounts/fireworks/models/mixtral-8x22b-instruct-hf",
+        #    MIXTRAL_8X22B_INSTRUCT,
+        # ),
         _NvidiaLlm("mistralai/mixtral-8x22b-instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         _OctoLlm("mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
@@ -378,8 +379,6 @@ def _text_models():
             "accounts/fixie/models/1b68538a063a49e2ae4513d4ef186e9a",
             LLAMA_3_70B_CHAT + "-lora-1b68",
         ),
-        # Function calling with Llama 3 70b
-        _FireworksLlm("accounts/fireworks/models/firefunction-v2", "firefunction-v2"),
         # Llama 3 8b
         _AnyscaleLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         _CloudflareLlm("@cf/meta/llama-3-8b-instruct", LLAMA_3_8B_CHAT),
@@ -404,6 +403,21 @@ def _text_models():
         # Phi-2
         _CloudflareLlm("@cf/microsoft/phi-2", PHI_2),
         _TogetherLlm("microsoft/phi-2", PHI_2),
+    ]
+
+
+def _tools_models():
+    return [
+        _Llm(GPT_4O),
+        _Llm(GPT_4O_MINI),
+        _Llm(GPT_4_TURBO),
+        _Llm("claude-3-opus-20240229"),
+        _Llm("claude-3-5-sonnet-20240620"),
+        _Llm("claude-3-sonnet-20240229"),
+        _Llm("claude-3-haiku-20240307"),
+        _FireworksLlm("accounts/fireworks/models/firefunction-v2", "firefunction-v2"),
+        # _GroqLlm("llama3-groq-70b-8192-tool-use-preview"),
+        # _GroqLlm("llama3-groq-8b-8192-tool-use-preview"),
     ]
 
 
@@ -453,6 +467,7 @@ def _video_models():
 def _get_models(mode: str, filter: Optional[str] = None):
     mode_map = {
         "text": _text_models,
+        "tools": _tools_models,
         "image": _image_models,
         "audio": _audio_models,
         "video": _video_models,
@@ -471,6 +486,12 @@ def _get_models(mode: str, filter: Optional[str] = None):
 def _get_prompt(mode: str) -> List[str]:
     if mode == "text":
         return ["Write a nonet about a sunset."]
+    elif mode == "tools":
+        return [
+            "I have a flight booked for July 14, 2024, the flight number is AA100. Can you check its status for me?",
+            "--tool",
+            "media/tools/flights.json",
+        ]
     elif mode == "image":
         return [
             "Based on the image, explain what will happen next.",
