@@ -26,6 +26,8 @@ GPT_35_TURBO_0125 = "gpt-3.5-turbo-0125"
 GPT_35_TURBO_1106 = "gpt-3.5-turbo-1106"
 GEMINI_1_5_PRO = "gemini-1.5-pro"
 GEMINI_1_5_FLASH = "gemini-1.5-flash"
+LLAMA_3_405B_CHAT = "llama-3-405b-chat"
+LLAMA_3_405B_CHAT_FP8 = "llama-3-405b-chat-fp8"
 LLAMA_3_70B_CHAT = "llama-3-70b-chat"
 LLAMA_3_70B_CHAT_FP8 = "llama-3-70b-chat-fp8"
 LLAMA_3_8B_CHAT = "llama-3-8b-chat"
@@ -562,7 +564,7 @@ def _format_response(
             tps = r.tps or 0.0
             num_tokens = r.num_tokens or 0
             total_time = r.total_time or 0.0
-            output = r.error or r.output.replace("\n", "\\n").strip()
+            output = (r.error or r.output).strip().replace("\n", "\\n")
             s += (
                 f"| {r.model:42} | {ttr:4.2f} | {ttft:4.2f} | "
                 f"{tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | "
