@@ -180,7 +180,7 @@ class _GroqLlm(_Llm):
 
 
 class _NvidiaLlm(_Llm):
-    """See https://github.com/NVIDIA/NeMo/tree/main/examples/nlp/text_generation"""
+    """See https://build.nvidia.com/explore/discover"""
 
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
