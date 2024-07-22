@@ -412,9 +412,11 @@ def _tools_models():
         _Llm("claude-3-5-sonnet-20240620"),
         _Llm("claude-3-sonnet-20240229"),
         _Llm("claude-3-haiku-20240307"),
+        _Llm(GEMINI_1_5_PRO),
+        _Llm(GEMINI_1_5_FLASH),
         _FireworksLlm("accounts/fireworks/models/firefunction-v2", "firefunction-v2"),
-        # _GroqLlm("llama3-groq-70b-8192-tool-use-preview"),
-        # _GroqLlm("llama3-groq-8b-8192-tool-use-preview"),
+        _GroqLlm("llama3-groq-70b-8192-tool-use-preview"),
+        _GroqLlm("llama3-groq-8b-8192-tool-use-preview"),
     ]
 
 
