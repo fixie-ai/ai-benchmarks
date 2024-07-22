@@ -430,7 +430,6 @@ async def gemini_chat(ctx: ApiContext) -> ApiResult:
     async def chunk_gen(response) -> TokenGenerator:
         tokens = 0
         async for chunk in make_json_chunk_gen(response):
-            print("chunk", chunk)
             candidates = chunk.get("candidates")
             if candidates:
                 content = candidates[0].get("content")
