@@ -30,8 +30,10 @@ LLAMA_31_405B_CHAT = "llama-3.1-405b-chat"
 LLAMA_31_405B_CHAT_FP8 = "llama-3.1-405b-chat-fp8"
 LLAMA_3_70B_CHAT = "llama-3-70b-chat"
 LLAMA_3_70B_CHAT_FP8 = "llama-3-70b-chat-fp8"
+LLAMA_3_70B_CHAT_FP4 = "llama-3-70b-chat-fp4"
 LLAMA_3_8B_CHAT = "llama-3-8b-chat"
 LLAMA_3_8B_CHAT_FP8 = "llama-3-8b-chat-fp8"
+LLAMA_3_8B_CHAT_FP4 = "llama-3-8b-chat-fp4"
 MIXTRAL_8X22B_INSTRUCT = "mixtral-8x22b-instruct"
 MIXTRAL_8X22B_INSTRUCT_FP8 = "mixtral-8x22b-instruct-fp8"
 MIXTRAL_8X7B_INSTRUCT = "mixtral-8x7b-instruct"
@@ -121,18 +123,6 @@ class _Llm:
         return await llm_benchmark.run(full_argv)
 
 
-class _AnyscaleLlm(_Llm):
-    """See https://docs.endpoints.anyscale.com/text-generation/query-a-model"""
-
-    def __init__(self, model: str, display_model: Optional[str] = None):
-        super().__init__(
-            model,
-            "anyscale.com/" + (display_model or model),
-            api_key=os.getenv("ANYSCALE_API_KEY"),
-            base_url="https://api.endpoints.anyscale.com/v1",
-        )
-
-
 class _CloudflareLlm(_Llm):
     """See https://developers.cloudflare.com/workers-ai/models/"""
 
@@ -192,7 +182,7 @@ class _GroqLlm(_Llm):
 
 
 class _NvidiaLlm(_Llm):
-    """See https://github.com/NVIDIA/NeMo/tree/main/examples/nlp/text_generation"""
+    """See https://build.nvidia.com/explore/discover"""
 
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
@@ -332,7 +322,6 @@ def _text_models():
         #    api_key=os.getenv("AZURE_EASTUS2_MISTRAL_API_KEY"),
         #    base_url="https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1",
         # ),
-        _AnyscaleLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         _DeepInfraLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         _FireworksLlm(
             "accounts/fireworks/models/mixtral-8x22b-instruct",
@@ -347,7 +336,6 @@ def _text_models():
         _OctoLlm("mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         # Mistral 8x7b
-        _AnyscaleLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _DatabricksLlm("databricks-mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _DeepInfraLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _FireworksLlm(
@@ -374,7 +362,6 @@ def _text_models():
         ),
         # _OvhLlm("llama-3p1-405b-instruct", LLAMA_31_405B_CHAT),
         # Llama 3 70b
-        _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _DeepInfraLlm("meta-llama/Meta-Llama-3-70B-Instruct", LLAMA_3_70B_CHAT),
         _FireworksLlm(
@@ -388,6 +375,10 @@ def _text_models():
         _OctoLlm("meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _PerplexityLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
+        _TogetherLlm(
+            "meta-llama/Meta-Llama-3-70B-Instruct-Turbo", LLAMA_3_70B_CHAT_FP8
+        ),
+        _TogetherLlm("meta-llama/Meta-Llama-3-70B-Instruct-Lite", LLAMA_3_70B_CHAT_FP4),
         _OvhLlm("llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         # Finetunes on Llama 3 70b
         _FireworksLlm(
@@ -395,7 +386,6 @@ def _text_models():
             LLAMA_3_70B_CHAT + "-lora-1b68",
         ),
         # Llama 3 8b
-        _AnyscaleLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         _CloudflareLlm("@cf/meta/llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _DeepInfraLlm("meta-llama/Meta-Llama-3-8B-Instruct", LLAMA_3_8B_CHAT),
         _FireworksLlm(
@@ -414,7 +404,14 @@ def _text_models():
         ),
         _PerplexityLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
+        _TogetherLlm("meta-llama/Meta-Llama-3-8B-Instruct-Turbo", LLAMA_3_8B_CHAT_FP8),
+        _TogetherLlm("meta-llama/Meta-Llama-3-8B-Instruct-Lite", LLAMA_3_8B_CHAT_FP4),
         _OvhLlm("llama-3-8b-instruct", LLAMA_3_8B_CHAT),
+        # Fine-tunes on Llama 3 8b
+        _FireworksLlm(
+            "accounts/fixie/models/8ab03ea85d2a4b9da659ce63db36a9b1",
+            LLAMA_3_8B_CHAT + "-lora-8ab0",
+        ),
         # Phi-2
         _CloudflareLlm("@cf/microsoft/phi-2", PHI_2),
         _TogetherLlm("microsoft/phi-2", PHI_2),
@@ -430,9 +427,11 @@ def _tools_models():
         _Llm("claude-3-5-sonnet-20240620"),
         _Llm("claude-3-sonnet-20240229"),
         _Llm("claude-3-haiku-20240307"),
+        _Llm(GEMINI_1_5_PRO),
+        _Llm(GEMINI_1_5_FLASH),
         _FireworksLlm("accounts/fireworks/models/firefunction-v2", "firefunction-v2"),
-        # _GroqLlm("llama3-groq-70b-8192-tool-use-preview"),
-        # _GroqLlm("llama3-groq-8b-8192-tool-use-preview"),
+        _GroqLlm("llama3-groq-70b-8192-tool-use-preview"),
+        _GroqLlm("llama3-groq-8b-8192-tool-use-preview"),
     ]
 
 
