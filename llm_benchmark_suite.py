@@ -26,8 +26,8 @@ GPT_35_TURBO_0125 = "gpt-3.5-turbo-0125"
 GPT_35_TURBO_1106 = "gpt-3.5-turbo-1106"
 GEMINI_1_5_PRO = "gemini-1.5-pro"
 GEMINI_1_5_FLASH = "gemini-1.5-flash"
-LLAMA_3_405B_CHAT = "llama-3-405b-chat"
-LLAMA_3_405B_CHAT_FP8 = "llama-3-405b-chat-fp8"
+LLAMA_31_405B_CHAT = "llama-3.1-405b-chat"
+LLAMA_31_405B_CHAT_FP8 = "llama-3.1-405b-chat-fp8"
 LLAMA_3_70B_CHAT = "llama-3-70b-chat"
 LLAMA_3_70B_CHAT_FP8 = "llama-3-70b-chat-fp8"
 LLAMA_3_8B_CHAT = "llama-3-8b-chat"
@@ -361,27 +361,18 @@ def _text_models():
         _OctoLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3 405b
-        _DatabricksLlm("databricks-meta-llama-3-1-405b-instruct", LLAMA_3_405B_CHAT),
-        _DeepInfraLlm("meta-llama/Meta-Llama-3-1-405B-Instruct", LLAMA_3_405B_CHAT),
+        _DatabricksLlm("databricks-meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
+        # _DeepInfraLlm("meta-llama/Meta-Llama-3.1-405B-Instruct", LLAMA_31_405B_CHAT),
         _FireworksLlm(
-            "accounts/fireworks/models/llama-v3-1-405b-instruct", LLAMA_3_405B_CHAT_FP8
+            "accounts/fireworks/models/llama-v3p1-405b-instruct", LLAMA_31_405B_CHAT_FP8
         ),
-        _FireworksLlm(
-            "accounts/fireworks/models/llama-v3-1-405b-instruct-hf", LLAMA_3_405B_CHAT
-        ),
-        _GroqLlm("llama3-1-405b-8192", LLAMA_3_405B_CHAT_FP8),
-        _NvidiaLlm("meta/llama3-1-405b-instruct", LLAMA_3_405B_CHAT),
-        _OctoLlm("meta-llama-3-1-405b-instruct", LLAMA_3_405B_CHAT),
-        _PerplexityLlm("llama-3-1-405b-instruct", LLAMA_3_405B_CHAT),
-        _TogetherLlm("meta-llama/Llama-3-1-405b-chat-hf", LLAMA_3_405B_CHAT),
+        _GroqLlm("llama-3.1-405b-reasoning", LLAMA_31_405B_CHAT_FP8),
+        _NvidiaLlm("meta/llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
+        _OctoLlm("meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
         _TogetherLlm(
-            "meta-llama/Meta-Llama-3-1-405B-Instruct-Lite", LLAMA_3_405B_CHAT + "-lite"
+            "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", LLAMA_31_405B_CHAT_FP8
         ),
-        _TogetherLlm(
-            "meta-llama/Meta-Llama-3-1-405B-Instruct-Turbo",
-            LLAMA_3_405B_CHAT + "-turbo",
-        ),
-        _OvhLlm("llama-3-1-405b-instruct", LLAMA_3_405B_CHAT),
+        # _OvhLlm("llama-3p1-405b-instruct", LLAMA_31_405B_CHAT),
         # Llama 3 70b
         _AnyscaleLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
