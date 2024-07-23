@@ -243,7 +243,7 @@ async def make_sse_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
 async def openai_chunk_gen(response) -> TokenGenerator:
     tokens = 0
     async for chunk in make_sse_chunk_gen(response):
-        if chunk["choices"]:
+        if chunk.get("choices", []):
             delta = chunk["choices"][0]["delta"]
             delta_content = delta.get("content")
             delta_tool = delta.get("tool_calls")
