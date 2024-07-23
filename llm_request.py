@@ -122,10 +122,12 @@ class ApiContext:
                             self.metrics.ttft = first_token_time - start_time
                         if on_token and chunk:
                             on_token(self, chunk)
-                    if on_token:
-                        on_token(self, "")
-                if not self.metrics.num_tokens:
-                    self.metrics.error = "No tokens received"
+                    if first_token_time:
+                        # Signal the end of the generation.
+                        if on_token:
+                            on_token(self, "")
+                    else:
+                        self.metrics.error = "No tokens received"
             else:
                 text = await response.text()
                 self.metrics.error = f"{response.status} {response.reason} {text}"
