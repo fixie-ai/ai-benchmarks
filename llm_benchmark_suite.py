@@ -28,6 +28,10 @@ GEMINI_1_5_PRO = "gemini-1.5-pro"
 GEMINI_1_5_FLASH = "gemini-1.5-flash"
 LLAMA_31_405B_CHAT = "llama-3.1-405b-chat"
 LLAMA_31_405B_CHAT_FP8 = "llama-3.1-405b-chat-fp8"
+LLAMA_31_70B_CHAT = "llama-3.1-70b-chat"
+LLAMA_31_70B_CHAT_FP8 = "llama-3.1-70b-chat-fp8"
+LLAMA_31_8B_CHAT = "llama-3.1-8b-chat"
+LLAMA_31_8B_CHAT_FP8 = "llama-3.1-8b-chat-fp8"
 LLAMA_3_70B_CHAT = "llama-3-70b-chat"
 LLAMA_3_70B_CHAT_FP8 = "llama-3-70b-chat-fp8"
 LLAMA_3_70B_CHAT_FP4 = "llama-3-70b-chat-fp4"
@@ -348,7 +352,7 @@ def _text_models():
         _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _OctoLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
-        # Llama 3 405b
+        # Llama 3.1 405b
         _DatabricksLlm("databricks-meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
         # _DeepInfraLlm("meta-llama/Meta-Llama-3.1-405B-Instruct", LLAMA_31_405B_CHAT),
         _FireworksLlm(
@@ -361,6 +365,32 @@ def _text_models():
             "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", LLAMA_31_405B_CHAT_FP8
         ),
         # _OvhLlm("llama-3p1-405b-instruct", LLAMA_31_405B_CHAT),
+        # Llama 3.1 70b
+        _DatabricksLlm("databricks-meta-llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
+        # _DeepInfraLlm("meta-llama/Meta-Llama-3.1-70B-Instruct", LLAMA_31_70B_CHAT),
+        _FireworksLlm(
+            "accounts/fireworks/models/llama-v3p1-70b-instruct", LLAMA_31_70B_CHAT_FP8
+        ),
+        _GroqLlm("llama-3.1-70b-versatile", LLAMA_31_70B_CHAT_FP8),
+        _NvidiaLlm("meta/llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
+        _OctoLlm("meta-llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
+        _TogetherLlm(
+            "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", LLAMA_31_70B_CHAT_FP8
+        ),
+        # _OvhLlm("llama-3p1-8b-instruct", LLAMA_31_8B_CHAT),
+        # Llama 3.1 8b
+        _DatabricksLlm("databricks-meta-llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
+        # _DeepInfraLlm("meta-llama/Meta-Llama-3.1-8B-Instruct", LLAMA_31_8B_CHAT),
+        _FireworksLlm(
+            "accounts/fireworks/models/llama-v3p1-8b-instruct", LLAMA_31_8B_CHAT_FP8
+        ),
+        _GroqLlm("llama-3.1-8b-instant", LLAMA_31_8B_CHAT_FP8),
+        _NvidiaLlm("meta/llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
+        _OctoLlm("meta-llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
+        _TogetherLlm(
+            "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", LLAMA_31_8B_CHAT_FP8
+        ),
+        # _OvhLlm("llama-3p1-70b-instruct", LLAMA_31_70B_CHAT),
         # Llama 3 70b
         _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _DeepInfraLlm("meta-llama/Meta-Llama-3-70B-Instruct", LLAMA_3_70B_CHAT),
@@ -412,9 +442,6 @@ def _text_models():
             "accounts/fixie/models/8ab03ea85d2a4b9da659ce63db36a9b1",
             LLAMA_3_8B_CHAT + "-lora-8ab0",
         ),
-        # Phi-2
-        _CloudflareLlm("@cf/microsoft/phi-2", PHI_2),
-        _TogetherLlm("microsoft/phi-2", PHI_2),
     ]
 
 
@@ -430,6 +457,15 @@ def _tools_models():
         _Llm(GEMINI_1_5_PRO),
         _Llm(GEMINI_1_5_FLASH),
         _FireworksLlm("accounts/fireworks/models/firefunction-v2", "firefunction-v2"),
+        # _FireworksLlm(
+        #    "accounts/fireworks/models/llama-v3p1-405b-instruct", LLAMA_31_405B_CHAT_FP8
+        # ), returns "FUNCTION"
+        _GroqLlm("llama-3.1-405b-reasoning", LLAMA_31_405B_CHAT_FP8),
+        _NvidiaLlm("meta/llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
+        _GroqLlm("llama-3.1-70b-versatile", LLAMA_31_70B_CHAT_FP8),
+        _NvidiaLlm("meta/llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
+        _GroqLlm("llama-3.1-8b-instant", LLAMA_31_8B_CHAT_FP8),
+        _NvidiaLlm("meta/llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
         _GroqLlm("llama3-groq-70b-8192-tool-use-preview"),
         _GroqLlm("llama3-groq-8b-8192-tool-use-preview"),
     ]
