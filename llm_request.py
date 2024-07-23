@@ -124,6 +124,8 @@ class ApiContext:
                             on_token(self, chunk)
                     if on_token:
                         on_token(self, "")
+                if not self.metrics.num_tokens:
+                    self.metrics.error = "No tokens received"
             else:
                 text = await response.text()
                 self.metrics.error = f"{response.status} {response.reason} {text}"
@@ -132,11 +134,11 @@ class ApiContext:
         except aiohttp.ClientError as e:
             self.metrics.error = str(e)
         end_time = time.time()
-        if self.metrics.num_tokens:
+        if not self.metrics.error:
             token_time = end_time - first_token_time
             self.metrics.total_time = end_time - start_time
             self.metrics.tps = min((self.metrics.num_tokens - 1) / token_time, 999)
-        elif self.metrics.error:
+        else:
             self.metrics.ttft = MAX_TTFT
             self.metrics.tps = 0.0
             self.metrics.total_time = MAX_TOTAL_TIME
