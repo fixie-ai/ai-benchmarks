@@ -217,20 +217,12 @@ def make_openai_messages(ctx: ApiContext):
 def make_openai_chat_body(ctx: ApiContext, **kwargs):
     # Models differ in how they want to receive the prompt, so
     # we let the caller specify the key and format.
-    request_usage = (
-        "openai" in ctx.name
-        or "octo.ai" in ctx.name
-        or "ovh.net" in ctx.name
-        or "nvidia.com" in ctx.name
-    )
     body = {
         "model": ctx.model or None,
         "max_tokens": ctx.max_tokens,
         "temperature": ctx.temperature,
         "stream": True,
     }
-    if request_usage:
-        body["stream_options"] = {"include_usage": True}
     for key, value in kwargs.items():
         body[key] = value
     return body
@@ -250,7 +242,6 @@ async def make_sse_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
 
 async def openai_chunk_gen(ctx: ApiContext, response) -> TokenGenerator:
     async for chunk in make_sse_chunk_gen(response):
-        # print("chunk", chunk)
         if chunk.get("choices", []):
             delta = chunk["choices"][0]["delta"]
             delta_content = delta.get("content")
@@ -280,7 +271,9 @@ async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiRe
     if ctx.peft:
         kwargs["peft"] = ctx.peft
     # Some providers require opt-in for stream stats, but some providers don't like this opt-in.
-    if "azure" not in ctx.name and "fireworks" not in ctx.name:
+    # Azure, ovh.net, and vLLM don't support stream stats at the moment.
+    # See https://github.com/Azure/azure-rest-api-specs/issues/25062
+    if not any(p in ctx.name for p in ["azure", "databricks", "fireworks", "ultravox"]):
         kwargs["stream_options"] = {"include_usage": True}
     data = make_openai_chat_body(ctx, **kwargs)
     return await post(ctx, url, headers, data, openai_chunk_gen)

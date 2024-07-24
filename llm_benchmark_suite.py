@@ -535,7 +535,7 @@ def _get_models(mode: str, filter: Optional[str] = None):
 
 def _get_prompt(mode: str) -> List[str]:
     if mode == "text":
-        return ["media/text/llama31.txt"]
+        return ["@media/text/llama31.md"]
     elif mode == "tools":
         return [
             "I have a flight booked for July 14, 2024, the flight number is AA100. Can you check its status for me?",
@@ -579,9 +579,9 @@ def _format_response(
         return response.to_json(indent=2), "application/json"
     else:
         s = (
-            "| Provider/Model                             | TTR  | TTFT | TPS | IT  | OT  | Total |"
+            "| Provider/Model                             | TTR  | TTFT | TPS |  IT  | OT  | Total |"
             f" {'Response':{dlen}.{dlen}} |\n"
-            "| :----------------------------------------- | ---: | ---: | --: | --: | --: | ----: |"
+            "| :----------------------------------------- | ---: | ---: | --: | ---: | --: | ----: |"
             f" {':--':-<{dlen}.{dlen}} |\n"
         )
 
