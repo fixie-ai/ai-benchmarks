@@ -156,7 +156,7 @@ async def post(
     make_chunk_gen: Optional[Callable[[aiohttp.ClientResponse], TokenGenerator]] = None,
 ):
     response = await ctx.session.post(url, headers=headers, data=json.dumps(data))
-    chunk_gen = make_chunk_gen(response) if make_chunk_gen else None
+    chunk_gen = make_chunk_gen(ctx, response) if make_chunk_gen else None
     return response, chunk_gen
 
 
@@ -242,33 +242,26 @@ async def make_sse_chunk_gen(response) -> AsyncGenerator[Dict[str, Any], None]:
                 yield json.loads(content)
 
 
-async def openai_chunk_gen(response) -> TokenGenerator:
-    tokens = 0
+async def openai_chunk_gen(ctx: ApiContext, response) -> TokenGenerator:
     async for chunk in make_sse_chunk_gen(response):
         if chunk.get("choices", []):
             delta = chunk["choices"][0]["delta"]
             delta_content = delta.get("content")
             delta_tool = delta.get("tool_calls")
             if delta_content:
-                tokens += 1
                 yield delta_content
             elif delta_tool:
                 function = delta_tool[0]["function"]
                 name = function.get("name", "").strip()
                 if name:
-                    tokens += 1
                     yield name
                 args = function.get("arguments", "").strip()
                 if args:
-                    tokens += 1
                     yield args
         usage = chunk.get("usage") or chunk.get("x_groq", {}).get("usage")
         if usage:
-            num_input_tokens = usage.get("prompt_tokens")
-            num_output_tokens = usage.get("completion_tokens")
-            while tokens < num_output_tokens:
-                tokens += 1
-                yield ""
+            ctx.metrics.input_tokens = usage.get("prompt_tokens")
+            ctx.metrics.num_tokens = usage.get("completion_tokens")
 
 
 async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiResult:
@@ -279,6 +272,11 @@ async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiRe
         kwargs["tool_choice"] = "required"
     if ctx.peft:
         kwargs["peft"] = ctx.peft
+    # Some providers require opt-in for stream stats, but some providers don't like this opt-in.
+    # Azure, ovh.net, and vLLM don't support stream stats at the moment.
+    # See https://github.com/Azure/azure-rest-api-specs/issues/25062
+    if not any(p in ctx.name for p in ["azure", "databricks", "fireworks", "ultravox"]):
+        kwargs["stream_options"] = {"include_usage": True}
     data = make_openai_chat_body(ctx, **kwargs)
     return await post(ctx, url, headers, data, openai_chunk_gen)
 
@@ -312,19 +310,21 @@ async def anthropic_chat(ctx: ApiContext) -> ApiResult:
     """Make an Anthropic chat completion request. The request protocol is similar to OpenAI's,
     but the response protocol is completely different."""
 
-    async def chunk_gen(response) -> TokenGenerator:
-        tokens = 0
+    async def chunk_gen(ctx: ApiContext, response) -> TokenGenerator:
         async for chunk in make_sse_chunk_gen(response):
             delta = chunk.get("delta")
             if delta and delta.get("type") == "text_delta":
-                tokens += 1
                 yield delta["text"]
-            usage = chunk.get("usage")
-            if usage:
-                num_tokens = usage.get("output_tokens")
-                while tokens < num_tokens:
-                    tokens += 1
-                    yield ""
+
+            type = chunk.get("type")
+            if type == "message_start":
+                usage = chunk["message"].get("usage")
+                if usage:
+                    ctx.metrics.input_tokens = usage.get("input_tokens")
+            elif type == "message_delta":
+                usage = chunk.get("usage")
+                if usage:
+                    ctx.metrics.num_tokens = usage.get("output_tokens")
 
     url = "https://api.anthropic.com/v1/messages"
     headers = {
@@ -347,13 +347,15 @@ async def anthropic_chat(ctx: ApiContext) -> ApiResult:
 async def cohere_chat(ctx: ApiContext) -> ApiResult:
     """Make a Cohere chat completion request."""
 
-    async def chunk_gen(response) -> TokenGenerator:
-        tokens = 0
+    async def chunk_gen(ctx: ApiContext, response) -> TokenGenerator:
         async for line in response.content:
             chunk = json.loads(line)
             if chunk.get("event_type") == "text-generation" and "text" in chunk:
-                tokens += 1
                 yield chunk["text"]
+            elif chunk.get("event_type") == "stream-end":
+                meta = chunk["response"]["meta"]
+                ctx.metrics.input_tokens = meta["tokens"]["input_tokens"]
+                ctx.metrics.num_tokens = meta["tokens"]["output_tokens"]
 
     url = "https://api.cohere.ai/v1/chat"
     headers = make_headers(auth_token=get_api_key(ctx, "COHERE_API_KEY"))
@@ -366,7 +368,7 @@ async def cloudflare_chat(ctx: ApiContext) -> ApiResult:
     but the URL doesn't follow the same scheme and the response structure is different.
     """
 
-    async def chunk_gen(response) -> TokenGenerator:
+    async def chunk_gen(ctx: ApiContext, response) -> TokenGenerator:
         async for chunk in make_sse_chunk_gen(response):
             yield chunk["response"]
 
@@ -431,8 +433,7 @@ def make_gemini_messages(prompt: str, files: List[InputFile]):
 
 
 async def gemini_chat(ctx: ApiContext) -> ApiResult:
-    async def chunk_gen(response) -> TokenGenerator:
-        tokens = 0
+    async def chunk_gen(ctx: ApiContext, response) -> TokenGenerator:
         async for chunk in make_json_chunk_gen(response):
             candidates = chunk.get("candidates")
             if candidates:
@@ -440,22 +441,17 @@ async def gemini_chat(ctx: ApiContext) -> ApiResult:
                 if content and "parts" in content:
                     part = content["parts"][0]
                     if "text" in part:
-                        tokens += 1
                         yield part["text"]
                     elif "functionCall" in part:
                         call = part["functionCall"]
                         if "name" in call:
-                            tokens += 1
                             yield call["name"]
                         if "args" in call:
-                            tokens += 1
                             yield str(call["args"])
             usage = chunk.get("usageMetadata")
             if usage:
-                num_tokens = usage.get("candidatesTokenCount")
-                while tokens < num_tokens:
-                    tokens += 1
-                    yield ""
+                ctx.metrics.input_tokens = usage.get("promptTokenCount")
+                ctx.metrics.num_tokens = usage.get("candidatesTokenCount")
 
     # The Google AI Gemini API (URL below) doesn't return the number of generated tokens.
     # Instead we use the Google Cloud Vertex AI Gemini API, which does return the number of tokens, but requires an Oauth credential.
