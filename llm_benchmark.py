@@ -180,6 +180,10 @@ async def main(args: argparse.Namespace):
         return None
 
     # Run the queries.
+    prompt = args.prompt
+    if prompt.startswith("@"):
+        with open(prompt[1:], "r") as f:
+            prompt = f.read()
     tools = [json.load(tool) for tool in args.tool or []]
     files = [llm_request.InputFile.from_file(file) for file in args.file or []]
     timeout = aiohttp.ClientTimeout(total=args.timeout)
@@ -190,7 +194,7 @@ async def main(args: argparse.Namespace):
     ) as session:
         init_ctx = llm_request.make_context(session, -1, args)
         contexts = [
-            llm_request.make_context(session, i, args, args.prompt, files, tools)
+            llm_request.make_context(session, i, args, prompt, files, tools)
             for i in range(args.num_requests)
         ]
         chosen = None

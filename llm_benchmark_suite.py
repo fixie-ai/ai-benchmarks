@@ -535,7 +535,7 @@ def _get_models(mode: str, filter: Optional[str] = None):
 
 def _get_prompt(mode: str) -> List[str]:
     if mode == "text":
-        return ["Write a nonet about a sunset."]
+        return ["media/text/llama31.txt"]
     elif mode == "tools":
         return [
             "I have a flight booked for July 14, 2024, the flight number is AA100. Can you check its status for me?",
@@ -579,9 +579,9 @@ def _format_response(
         return response.to_json(indent=2), "application/json"
     else:
         s = (
-            "| Provider/Model                             | TTR  | TTFT | TPS | Tok | Total |"
+            "| Provider/Model                             | TTR  | TTFT | TPS | IT  | OT  | Total |"
             f" {'Response':{dlen}.{dlen}} |\n"
-            "| :----------------------------------------- | ---: | ---: | --: | --: | ----: |"
+            "| :----------------------------------------- | ---: | ---: | --: | --: | --: | ----: |"
             f" {':--':-<{dlen}.{dlen}} |\n"
         )
 
@@ -589,13 +589,14 @@ def _format_response(
             ttr = r.ttr or 0.0
             ttft = r.ttft or 0.0
             tps = r.tps or 0.0
+            input_tokens = r.input_tokens or 0
             num_tokens = r.num_tokens or 0
             total_time = r.total_time or 0.0
             output = (r.error or r.output).strip().replace("\n", "\\n")
             s += (
-                f"| {r.model:42} | {ttr:4.2f} | {ttft:4.2f} | "
-                f"{tps:3.0f} | {num_tokens:3} | {total_time:5.2f} | "
-                f"{output:{dlen}.{dlen}} |\n"
+                f"| {r.model:42} | {ttr:4.2f} | {ttft:4.2f} | {tps:3.0f} "
+                f"| {input_tokens:4} | {num_tokens:3} | {total_time:5.2f} "
+                f"| {output:{dlen}.{dlen}} |\n"
             )
 
         s += f"\ntime: {response.time}, duration: {response.duration} region: {response.region}, cmd: {response.cmd}\n"
