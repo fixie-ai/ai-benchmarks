@@ -63,8 +63,12 @@ class ApiMetrics(dataclasses_json.DataClassJsonMixin):
     ttft: Optional[float] = None
     tps: Optional[float] = None
     input_tokens: Optional[int] = None
-    num_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
     total_time: Optional[float] = None
+    provider_queue_time: Optional[float] = None
+    provider_input_time: Optional[float] = None
+    provider_output_time: Optional[float] = None
+    provider_total_time: Optional[float] = None
     output: Optional[str] = None
     error: Optional[str] = None
 
@@ -112,11 +116,11 @@ class ApiContext:
             self.metrics.ttr = time.time() - start_time
             if response.ok:
                 if chunk_gen:
-                    self.metrics.num_tokens = 0
+                    self.metrics.output_tokens = 0
                     self.metrics.output = ""
                     async for chunk in chunk_gen:
                         self.metrics.output += chunk
-                        self.metrics.num_tokens += 1
+                        self.metrics.output_tokens += 1
                         if not first_token_time:
                             first_token_time = time.time()
                             self.metrics.ttft = first_token_time - start_time
@@ -124,7 +128,7 @@ class ApiContext:
                             on_token(self, chunk)
                     if on_token:
                         on_token(self, "")
-                if not self.metrics.num_tokens:
+                if not self.metrics.output_tokens:
                     self.metrics.error = "No tokens received"
             else:
                 text = await response.text()
@@ -137,7 +141,7 @@ class ApiContext:
         if not self.metrics.error:
             token_time = end_time - first_token_time
             self.metrics.total_time = end_time - start_time
-            self.metrics.tps = min((self.metrics.num_tokens - 1) / token_time, 999)
+            self.metrics.tps = min((self.metrics.output_tokens - 1) / token_time, 999)
         else:
             self.metrics.ttft = MAX_TTFT
             self.metrics.tps = 0.0
@@ -259,7 +263,11 @@ async def openai_chunk_gen(ctx: ApiContext, response) -> TokenGenerator:
         usage = chunk.get("usage") or chunk.get("x_groq", {}).get("usage")
         if usage:
             ctx.metrics.input_tokens = usage.get("prompt_tokens")
-            ctx.metrics.num_tokens = usage.get("completion_tokens")
+            ctx.metrics.output_tokens = usage.get("completion_tokens")
+            ctx.metrics.provider_queue_time = usage.get("queue_time")
+            ctx.metrics.provider_input_time = usage.get("prompt_time")
+            ctx.metrics.provider_output_time = usage.get("completion_time")
+            ctx.metrics.provider_total_time = usage.get("total_time")
 
 
 async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiResult:
@@ -322,7 +330,7 @@ async def anthropic_chat(ctx: ApiContext) -> ApiResult:
             elif type == "message_delta":
                 usage = chunk.get("usage")
                 if usage:
-                    ctx.metrics.num_tokens = usage.get("output_tokens")
+                    ctx.metrics.output_tokens = usage.get("output_tokens")
 
     url = "https://api.anthropic.com/v1/messages"
     headers = {
@@ -353,7 +361,7 @@ async def cohere_chat(ctx: ApiContext) -> ApiResult:
             elif chunk.get("event_type") == "stream-end":
                 meta = chunk["response"]["meta"]
                 ctx.metrics.input_tokens = meta["tokens"]["input_tokens"]
-                ctx.metrics.num_tokens = meta["tokens"]["output_tokens"]
+                ctx.metrics.output_tokens = meta["tokens"]["output_tokens"]
 
     url = "https://api.cohere.ai/v1/chat"
     headers = make_headers(auth_token=get_api_key(ctx, "COHERE_API_KEY"))
@@ -449,7 +457,7 @@ async def gemini_chat(ctx: ApiContext) -> ApiResult:
             usage = chunk.get("usageMetadata")
             if usage:
                 ctx.metrics.input_tokens = usage.get("promptTokenCount")
-                ctx.metrics.num_tokens = usage.get("candidatesTokenCount")
+                ctx.metrics.output_tokens = usage.get("candidatesTokenCount")
 
     # The Google AI Gemini API (URL below) doesn't return the number of generated tokens.
     # Instead we use the Google Cloud Vertex AI Gemini API, which does return the number of tokens, but requires an Oauth credential.
