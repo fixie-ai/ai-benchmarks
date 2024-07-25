@@ -367,7 +367,7 @@ def _text_models():
         # _OvhLlm("llama-3p1-405b-instruct", LLAMA_31_405B_CHAT),
         # Llama 3.1 70b
         # _DatabricksLlm("databricks-meta-llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
-        # _DeepInfraLlm("meta-llama/Meta-Llama-3.1-70B-Instruct", LLAMA_31_70B_CHAT),
+        _DeepInfraLlm("meta-llama/Meta-Llama-3.1-70B-Instruct", LLAMA_31_70B_CHAT),
         _FireworksLlm(
             "accounts/fireworks/models/llama-v3p1-70b-instruct", LLAMA_31_70B_CHAT_FP8
         ),
@@ -380,7 +380,7 @@ def _text_models():
         # _OvhLlm("llama-3p1-8b-instruct", LLAMA_31_8B_CHAT),
         # Llama 3.1 8b
         # _DatabricksLlm("databricks-meta-llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
-        # _DeepInfraLlm("meta-llama/Meta-Llama-3.1-8B-Instruct", LLAMA_31_8B_CHAT),
+        _DeepInfraLlm("meta-llama/Meta-Llama-3.1-8B-Instruct", LLAMA_31_8B_CHAT),
         _FireworksLlm(
             "accounts/fireworks/models/llama-v3p1-8b-instruct", LLAMA_31_8B_CHAT_FP8
         ),
