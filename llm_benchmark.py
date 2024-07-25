@@ -263,15 +263,15 @@ async def main(args: argparse.Namespace):
         print(f"Latency saved: {latency_saved:.2f} seconds")
         print(f"Optimized TTFT: {r.ttft:.2f} seconds")
         print(f"Median TTFT: {median_latency:.2f} seconds")
-        if r.num_tokens:
-            print(f"Tokens: {r.num_tokens} ({r.tps:.0f} tokens/sec)")
+        if r.output_tokens:
+            print(f"Tokens: {r.output_tokens} ({r.tps:.0f} tokens/sec)")
             print(f"Total time: {r.total_time:.2f} seconds")
     elif args.format == "minimal":
         assert r.output
         minimal_output = r.error or r.output.replace("\n", "\\n").strip()[:64]
         print(
             f"| {r.model:42} | {r.ttr:4.2f} | {r.ttft:4.2f} | {r.tps:3.0f} "
-            f"| {r.num_tokens:3} | {r.total_time:5.2f} | {minimal_output} |"
+            f"| {r.output_tokens:3} | {r.total_time:5.2f} | {minimal_output} |"
         )
     elif args.format == "json":
         print(r.to_json(indent=2))

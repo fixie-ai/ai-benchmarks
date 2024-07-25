@@ -579,9 +579,9 @@ def _format_response(
         return response.to_json(indent=2), "application/json"
     else:
         s = (
-            "| Provider/Model                             | TTR  | TTFT | TPS |  IT  | OT  | Total |"
+            "| Provider/Model                             | TTR  | TTFT | TPS | ITk  | OTk | ITim | OTim | Total |"
             f" {'Response':{dlen}.{dlen}} |\n"
-            "| :----------------------------------------- | ---: | ---: | --: | ---: | --: | ----: |"
+            "| :----------------------------------------- | ---: | ---: | --: | ---: | --: | ---: | ---: | ----: |"
             f" {':--':-<{dlen}.{dlen}} |\n"
         )
 
@@ -589,14 +589,20 @@ def _format_response(
             ttr = r.ttr or 0.0
             ttft = r.ttft or 0.0
             tps = r.tps or 0.0
-            input_tokens = r.input_tokens or 0
-            num_tokens = r.num_tokens or 0
+            in_tokens = r.input_tokens or 0
+            out_tokens = r.output_tokens or 0
+            in_time = r.provider_input_time or 0
+            out_time = (
+                r.provider_output_time or r.total_time - r.ttft
+                if out_tokens
+                else r.ttft
+            )
             total_time = r.total_time or 0.0
             output = (r.error or r.output).strip().replace("\n", "\\n")
             s += (
                 f"| {r.model:42} | {ttr:4.2f} | {ttft:4.2f} | {tps:3.0f} "
-                f"| {input_tokens:4} | {num_tokens:3} | {total_time:5.2f} "
-                f"| {output:{dlen}.{dlen}} |\n"
+                f"| {in_tokens:4} | {out_tokens:3} | {in_time:4.2f} | {out_time:4.2f} "
+                f"| {total_time:5.2f} | {output:{dlen}.{dlen}} |\n"
             )
 
         s += f"\ntime: {response.time}, duration: {response.duration} region: {response.region}, cmd: {response.cmd}\n"
