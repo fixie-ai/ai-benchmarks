@@ -354,7 +354,7 @@ def _text_models():
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3.1 405b
         _DatabricksLlm("databricks-meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
-        # _DeepInfraLlm("meta-llama/Meta-Llama-3.1-405B-Instruct", LLAMA_31_405B_CHAT),
+        _DeepInfraLlm("meta-llama/Meta-Llama-3.1-405B-Instruct", LLAMA_31_405B_CHAT_FP8),
         _FireworksLlm(
             "accounts/fireworks/models/llama-v3p1-405b-instruct", LLAMA_31_405B_CHAT_FP8
         ),
