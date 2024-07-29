@@ -354,7 +354,9 @@ def _text_models():
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3.1 405b
         _DatabricksLlm("databricks-meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
-        _DeepInfraLlm("meta-llama/Meta-Llama-3.1-405B-Instruct", LLAMA_31_405B_CHAT_FP8),
+        _DeepInfraLlm(
+            "meta-llama/Meta-Llama-3.1-405B-Instruct", LLAMA_31_405B_CHAT_FP8
+        ),
         _FireworksLlm(
             "accounts/fireworks/models/llama-v3p1-405b-instruct", LLAMA_31_405B_CHAT_FP8
         ),
@@ -459,7 +461,7 @@ def _tools_models():
         _FireworksLlm("accounts/fireworks/models/firefunction-v2", "firefunction-v2"),
         # _FireworksLlm(
         #    "accounts/fireworks/models/llama-v3p1-405b-instruct", LLAMA_31_405B_CHAT_FP8
-        # ), returns "FUNCTION"
+        # ), returns "FUNCTION" and the call as text
         _GroqLlm("llama-3.1-405b-reasoning", LLAMA_31_405B_CHAT_FP8),
         _NvidiaLlm("meta/llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
         _GroqLlm("llama-3.1-70b-versatile", LLAMA_31_70B_CHAT_FP8),
