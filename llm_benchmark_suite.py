@@ -538,7 +538,7 @@ def _get_prompt(mode: str) -> List[str]:
         return ["@media/text/llama31.md"]
     elif mode == "tools":
         return [
-            "I have a flight booked for July 14, 2024, the flight number is AA100. Can you check its status for me?",
+            "I have a flight booked for July 14, 2024, and the flight number is AA100. Please check its status for me.",
             "--tool",
             "media/tools/flights.json",
         ]
@@ -600,7 +600,7 @@ def _format_response(
             total_time = r.total_time or 0.0
             output = (r.error or r.output).strip().replace("\n", "\\n")
             s += (
-                f"| {r.model:42} | {ttr:4.2f} | {ttft:4.2f} | {tps:3.0f} "
+                f"| {r.model[:42]:42} | {ttr:4.2f} | {ttft:4.2f} | {tps:3.0f} "
                 f"| {in_tokens:4} | {out_tokens:3} | {in_time:4.2f} | {out_time:4.2f} "
                 f"| {total_time:5.2f} | {output:{dlen}.{dlen}} |\n"
             )
