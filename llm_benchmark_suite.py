@@ -38,8 +38,6 @@ LLAMA_3_70B_CHAT_FP4 = "llama-3-70b-chat-fp4"
 LLAMA_3_8B_CHAT = "llama-3-8b-chat"
 LLAMA_3_8B_CHAT_FP8 = "llama-3-8b-chat-fp8"
 LLAMA_3_8B_CHAT_FP4 = "llama-3-8b-chat-fp4"
-MIXTRAL_8X22B_INSTRUCT = "mixtral-8x22b-instruct"
-MIXTRAL_8X22B_INSTRUCT_FP8 = "mixtral-8x22b-instruct-fp8"
 MIXTRAL_8X7B_INSTRUCT = "mixtral-8x7b-instruct"
 MIXTRAL_8X7B_INSTRUCT_FP8 = "mixtral-8x7b-instruct-fp8"
 PHI_2 = "phi-2"
@@ -320,25 +318,6 @@ def _text_models():
         _Llm("gemini-pro"),
         _Llm(GEMINI_1_5_PRO),
         _Llm(GEMINI_1_5_FLASH),
-        # Mistral 8x22b
-        # _Llm(
-        #    "mistral-large",  # is this the same?
-        #    api_key=os.getenv("AZURE_EASTUS2_MISTRAL_API_KEY"),
-        #    base_url="https://fixie-mistral-serverless.eastus2.inference.ai.azure.com/v1",
-        # ),
-        _DeepInfraLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
-        _FireworksLlm(
-            "accounts/fireworks/models/mixtral-8x22b-instruct",
-            MIXTRAL_8X22B_INSTRUCT_FP8,
-        ),
-        # "Undeployed"
-        # _FireworksLlm(
-        #    "accounts/fireworks/models/mixtral-8x22b-instruct-hf",
-        #    MIXTRAL_8X22B_INSTRUCT,
-        # ),
-        _NvidiaLlm("mistralai/mixtral-8x22b-instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
-        _OctoLlm("mixtral-8x22b-instruct", MIXTRAL_8X22B_INSTRUCT),
-        _TogetherLlm("mistralai/Mixtral-8x22B-Instruct-v0.1", MIXTRAL_8X22B_INSTRUCT),
         # Mistral 8x7b
         _DatabricksLlm("databricks-mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _DeepInfraLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
@@ -485,7 +464,9 @@ def _image_models():
         _Llm("gemini-pro-vision"),
         _Llm(GEMINI_1_5_PRO),
         _Llm(GEMINI_1_5_FLASH),
-        _FireworksLlm("accounts/fireworks/models/firellava-13b", "firellava-13b"),
+        _FireworksLlm(
+            "accounts/fireworks/models/phi-3-vision-128k-instruct", "phi-3-vision"
+        ),
     ]
 
 
