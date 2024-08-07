@@ -83,6 +83,7 @@ class ApiContext:
     prompt: str
     files: List[InputFile]
     tools: List[Dict]
+    strict: bool
     temperature: float
     max_tokens: int
     detail: Optional[str] = None
@@ -99,6 +100,7 @@ class ApiContext:
         self.prompt = prompt
         self.files = files
         self.tools = tools
+        self.strict = args.strict
         self.detail = args.detail
         self.temperature = args.temperature
         self.max_tokens = args.max_tokens
@@ -276,14 +278,19 @@ async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiRe
     url, headers = make_openai_url_and_headers(ctx, path)
     kwargs = {"messages": make_openai_messages(ctx)}
     if ctx.tools:
-        kwargs["tools"] = ctx.tools
+        tools = ctx.tools[:]
+        if ctx.strict:
+            for t in tools:
+                t["function"]["strict"] = True
+                t["function"]["parameters"]["additionalProperties"] = False
+        kwargs["tools"] = tools
         kwargs["tool_choice"] = "required"
     if ctx.peft:
         kwargs["peft"] = ctx.peft
     # Some providers require opt-in for stream stats, but some providers don't like this opt-in.
-    # Azure, ovh.net, and vLLM don't support stream stats at the moment.
+    # Regardless of opt-in, Azure and ovh.net don't return stream stats at the moment.
     # See https://github.com/Azure/azure-rest-api-specs/issues/25062
-    if not any(p in ctx.name for p in ["azure", "databricks", "fireworks", "ultravox"]):
+    if not any(p in ctx.name for p in ["azure", "databricks", "fireworks"]):
         kwargs["stream_options"] = {"include_usage": True}
     data = make_openai_chat_body(ctx, **kwargs)
     return await post(ctx, url, headers, data, openai_chunk_gen)

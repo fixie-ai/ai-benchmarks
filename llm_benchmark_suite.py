@@ -431,6 +431,9 @@ def _tools_models():
         _Llm(GPT_4O),
         _Llm(GPT_4O_MINI),
         _Llm(GPT_4_TURBO),
+        _Llm(GPT_4O, GPT_4O + "-strict", strict=None),
+        _Llm(GPT_4O_MINI, GPT_4O_MINI + "-strict", strict=None),
+        _Llm(GPT_4_TURBO, GPT_4_TURBO + "-strict", strict=None),
         _Llm("claude-3-opus-20240229"),
         _Llm("claude-3-5-sonnet-20240620"),
         _Llm("claude-3-sonnet-20240229"),
@@ -476,7 +479,7 @@ def _audio_models():
         _Llm(GEMINI_1_5_PRO),
         _Llm(GEMINI_1_5_FLASH),
         _Llm(
-            "fixie-ai/ultravox-v0.2",
+            "fixie-ai/ultravox-v0.3",
             base_url="https://ultravox.api.fixie.ai/v1",
             api_key=os.getenv("ULTRAVOX_API_KEY"),
         ),
