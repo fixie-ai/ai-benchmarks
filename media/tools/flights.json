@@ -12,7 +12,6 @@
         },
         "date": {
           "type": "string",
-          "format": "date",
           "description": "The date of the flight, e.g., 2024-06-17"
         }
       },

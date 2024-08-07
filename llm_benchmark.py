@@ -40,6 +40,9 @@ parser.add_argument(
     help="JSON file defining tools that can be used",
 )
 parser.add_argument(
+    "--strict", action="store_true", help="Use strict mode when using tools"
+)
+parser.add_argument(
     "--model",
     "-m",
     type=str,
