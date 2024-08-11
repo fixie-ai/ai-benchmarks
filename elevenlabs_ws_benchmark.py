@@ -1,12 +1,13 @@
-import asyncio
-import websockets
-import json
-import base64
-import time
-import logging
-from typing import Iterator
-import os
 import argparse
+import asyncio
+import base64
+import json
+import logging
+import os
+import time
+from typing import Iterator
+
+import websockets
 
 # Read some settings from command line
 parser = argparse.ArgumentParser()

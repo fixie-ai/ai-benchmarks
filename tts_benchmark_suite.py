@@ -12,12 +12,14 @@ import grpc
 import websockets
 from pyht import AsyncClient
 from pyht.client import TTSOptions
-from pyht.protos import api_pb2, api_pb2_grpc
-from pyht.protos.api_pb2 import QUALITY_UNSPECIFIED
+from pyht.protos import api_pb2
+from pyht.protos import api_pb2_grpc
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    datefmt='%H:%M:%S')
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 
 class LatencyData:
@@ -78,8 +80,7 @@ class LatencyData:
 
     def get_total_latency(self):
         if not self.total_latency:
-            raise RuntimeError(
-                "Total latency not calculated. end() not called")
+            raise RuntimeError("Total latency not calculated. end() not called")
         return self.total_latency
 
     def get_chunk_times(self):
@@ -87,11 +88,9 @@ class LatencyData:
 
 
 # This is a modified version of the elevenlabs text chunker.
-def elevenlabs_text_chunker(
-        chunks: typing.Iterator[str]) -> typing.Iterator[str]:
+def elevenlabs_text_chunker(chunks: typing.Iterator[str]) -> typing.Iterator[str]:
     """Used during input streaming to chunk text blocks and set last char to space"""
-    splitters = (".", ",", "?", "!", ";", ":", "—", "-", "(", ")", "[", "]",
-                 "}", " ")
+    splitters = (".", ",", "?", "!", ";", ":", "—", "-", "(", ")", "[", "]", "}", " ")
     buffer = ""
     for text in chunks:
         if buffer.endswith(splitters):
@@ -116,36 +115,31 @@ async def elevenlabs_ws_tts(latency_data: LatencyData, config: dict):
             # https://elevenlabs.io/docs/api-reference/websockets#streaming-input-text
             "text": " ",
             "voice_settings": {
-                "stability": config['stability'],
-                "similarity_boost": config['similarity_boost'],
+                "stability": config["stability"],
+                "similarity_boost": config["similarity_boost"],
             },
-            "generation_config": {
-                "chunk_length_schedule": [50]
-            },
-            "xi_api_key": config['xi_api_key'],
+            "generation_config": {"chunk_length_schedule": [50]},
+            "xi_api_key": config["xi_api_key"],
             "try_trigger_generation": True,
         }
         await websocket.send(json.dumps(bos_message))
 
         audio_chunks: list[bytes] = []
-        text_chunks = elevenlabs_text_chunker(config['text'])
+        text_chunks = elevenlabs_text_chunker(config["text"])
         # we start the latency timer right BEFORE we send the first text chunk.
         latency_data.start()
         try:
             # send text chunks, in order, one at time. This is also how the
             # elevenlabs api implements it on their client aparently.
             for text_chunk in text_chunks:
-                data = dict(text=text_chunk,
-                            flush=True,
-                            try_trigger_generation=True)
+                data = dict(text=text_chunk, flush=True, try_trigger_generation=True)
                 await websocket.send(json.dumps(data))
                 logging.debug(f"Sent chunk: {text_chunk}")
 
             # EOS should always end with a empty space string ""
             # as per documentation:
             # https://elevenlabs.io/docs/api-reference/websockets#close-connection
-            await websocket.send(
-                json.dumps(dict(text="", try_trigger_generation=True)))
+            await websocket.send(json.dumps(dict(text="", try_trigger_generation=True)))
             while True:
                 response = await asyncio.wait_for(websocket.recv(), timeout=30)
                 latency_data.add_chunk_latency()
@@ -158,7 +152,8 @@ async def elevenlabs_ws_tts(latency_data: LatencyData, config: dict):
                         audio_chunks.append(audio_bytes)
                     elif audio is not None:
                         logging.warning(
-                            f"Received non-string audio data: {type(audio)}")
+                            f"Received non-string audio data: {type(audio)}"
+                        )
                 if data.get("isFinal"):
                     logging.debug("We are done")
                     break
@@ -174,24 +169,25 @@ async def elevenlabs_ws_tts(latency_data: LatencyData, config: dict):
 
 async def cartesia_tts(latency_data: LatencyData, config: dict):
     """Cartesia TTS WebSocket raw implementation"""
-    uri = (f"wss://api.cartesia.ai/tts/websocket"
-           f"?api_key={config['api_key']}"
-           f"&cartesia_version={config['cartesia_version']}")
+    uri = (
+        f"wss://api.cartesia.ai/tts/websocket"
+        f"?api_key={config['api_key']}"
+        f"&cartesia_version={config['cartesia_version']}"
+    )
     async with websockets.connect(uri) as websocket:
         request = {
             "context_id": f"tts-benchmark-suite-{uuid.uuid4()}",
-            "model_id": config['model_id'],
-            "transcript": config['text'],
-            "duration": config.get('duration', 180),
+            "model_id": config["model_id"],
+            "transcript": config["text"],
+            "duration": config.get("duration", 180),
             "voice": {
                 "mode": "id",
-                "id": config['voice_id'],
-                "__experimental_controls": config.get('experimental_controls',
-                                                      {})
+                "id": config["voice_id"],
+                "__experimental_controls": config.get("experimental_controls", {}),
             },
-            "output_format": config['output_format'],
-            "language": config.get('language', 'en'),
-            "add_timestamps": config.get('add_timestamps', False),
+            "output_format": config["output_format"],
+            "language": config.get("language", "en"),
+            "add_timestamps": config.get("add_timestamps", False),
             "continue": False,  # Sending to cartesia to indicate we are done.
         }
         # we start the latency timer right BEFORE we send the request.
@@ -226,9 +222,9 @@ async def playht_grpc_tts(latency_data: LatencyData, config: dict):
     channel = grpc.aio.insecure_channel("prod.turbo.play.ht:443")
     stub = api_pb2_grpc.TtsStub(channel)
 
-    if config['output_format'] == "mp3":
+    if config["output_format"] == "mp3":
         audio_format = api_pb2.FORMAT_MP3
-    elif config['output_format'] == "wav":
+    elif config["output_format"] == "wav":
         audio_format = api_pb2.FORMAT_WAV
     else:
         raise ValueError(f"Invalid format: {config['output_format']}")
@@ -236,17 +232,19 @@ async def playht_grpc_tts(latency_data: LatencyData, config: dict):
     # https://github.com/playht/pyht/blob/428e7af21962205883f5e14ba2f482dcf6c11b6d/protos/api.proto#L10
     request = api_pb2.TtsRequest(
         # https://github.com/playht/pyht/blob/428e7af21962205883f5e14ba2f482dcf6c11b6d/protos/api.proto#L24
-        params=api_pb2.TtsParams(text=config['text'],
-                                 voice=config['voice_id'],
-                                 format=audio_format,
-                                 sample_rate=config['sample_rate'],
-                                 quality=config.get('quality',
-                                                    api_pb2.QUALITY_DRAFT),
-                                 speed=config.get('speed', 1.0)))
+        params=api_pb2.TtsParams(
+            text=config["text"],
+            voice=config["voice_id"],
+            format=audio_format,
+            sample_rate=config["sample_rate"],
+            quality=config.get("quality", api_pb2.QUALITY_DRAFT),
+            speed=config.get("speed", 1.0),
+        )
+    )
 
     metadata = [
-        ('authorization', f"Bearer {config['user_id']}:{config['api_key']}"),
-        ('x-api-key', config['api_key']),
+        ("authorization", f"Bearer {config['user_id']}:{config['api_key']}"),
+        ("x-api-key", config["api_key"]),
     ]
     audio_chunks: list[bytes] = []
     latency_data.start()
@@ -255,13 +253,14 @@ async def playht_grpc_tts(latency_data: LatencyData, config: dict):
         async for response in stub.Tts(request, metadata=metadata):
             latency_data.add_chunk_latency()
             logging.info(f"Received response chunk: {response}")
-            if response.HasField('audio'):
+            if response.HasField("audio"):
                 audio_chunks.append(response.audio)
     except grpc.RpcError as e:
         error_code = e.code()
         logging.error(f"PlayHT gRPC streaming error: {error_code} {e}")
         if error_code not in {
-                grpc.StatusCode.RESOURCE_EXHAUSTED, grpc.StatusCode.UNAVAILABLE
+            grpc.StatusCode.RESOURCE_EXHAUSTED,
+            grpc.StatusCode.UNAVAILABLE,
         }:
             raise e
     except Exception as e:
@@ -276,29 +275,31 @@ async def playht_grpc_tts(latency_data: LatencyData, config: dict):
 async def playht_python_sdk_tts(latency_data: LatencyData, config: dict):
     """PlayHT TTS gRPC streaming implementation using the playht python sdk"""
     client = AsyncClient(
-        user_id=config['user_id'],
-        api_key=config['api_key'],
+        user_id=config["user_id"],
+        api_key=config["api_key"],
         # Uncomment the following line if you need to specify a custom gRPC address
         # advanced=AsyncClient.AdvancedOptions(grpc_addr="prod.turbo.play.ht:443")
     )
 
-    if config['output_format'] == "mp3":
+    if config["output_format"] == "mp3":
         audio_format = api_pb2.FORMAT_MP3
-    elif config['output_format'] == "wav":
+    elif config["output_format"] == "wav":
         audio_format = api_pb2.FORMAT_WAV
     else:
         raise ValueError(f"Invalid format: {config['output_format']}")
 
-    options = TTSOptions(voice=config['voice_id'],
-                         format=audio_format,
-                         quality=config.get('quality', api_pb2.QUALITY_DRAFT),
-                         speed=config.get('speed', 1.0),
-                         sample_rate=config.get('sample_rate', 24000))
+    options = TTSOptions(
+        voice=config["voice_id"],
+        format=audio_format,
+        quality=config.get("quality", api_pb2.QUALITY_DRAFT),
+        speed=config.get("speed", 1.0),
+        sample_rate=config.get("sample_rate", 24000),
+    )
 
     audio_chunks = []
     latency_data.start()
     try:
-        async for chunk in client.tts(config['text'], options):
+        async for chunk in client.tts(config["text"], options):
             latency_data.add_chunk_latency()
             if isinstance(chunk, bytes):
                 audio_chunks.append(chunk)
@@ -347,9 +348,8 @@ async def main():
                 "similarity_boost": False,
                 "xi_api_key": os.environ["ELEVEN_API_KEY"],
                 "output_format": "pcm_44100",
-                "optimize_streaming_latency":
-                4  # 1 is the lowest, 4 is the highest
-            }
+                "optimize_streaming_latency": 4,  # 1 is the lowest, 4 is the highest
+            },
         },
         "Cartesia - websocket": {
             "function": cartesia_tts,
@@ -362,11 +362,11 @@ async def main():
                 "output_format": {
                     "container": "raw",
                     "encoding": "pcm_s16le",
-                    "sample_rate": 8000
+                    "sample_rate": 8000,
                 },
                 "language": "en",
                 "add_timestamps": False,
-            }
+            },
         },
         "PlayHT - GRPC Python SDK": {
             "function": playht_python_sdk_tts,
@@ -374,15 +374,14 @@ async def main():
                 "text": args.text,
                 "api_key": os.environ["PLAYHT_API_KEY"],
                 "user_id": os.environ["PLAYHT_USER_ID"],
-                "voice_id":
-                "s3://voice-cloning-zero-shot/d9ff78ba-d016-47f6-b0ef-dd630f59414e/female-cs/manifest.json",
+                "voice_id": "s3://voice-cloning-zero-shot/d9ff78ba-d016-47f6-b0ef-dd630f59414e/female-cs/manifest.json",
                 "voice_engine": "PlayHT2.0-turbo",
                 "quality": "faster",
                 "output_format": "wav",
                 "sample_rate": 44100,
                 "speed": 1,
-            }
-        }
+            },
+        },
     }
 
     for service, details in services.items():
@@ -402,8 +401,7 @@ async def main():
         logging.info(
             f"{service}: Total chunks received: {len(latency_data.get_chunk_times())}"
         )
-        logging.info(
-            f"{service}: Total processing time: {total_time * 1000:.2f}ms")
+        logging.info(f"{service}: Total processing time: {total_time * 1000:.2f}ms")
         logging.info("-" * 40)
 
 
