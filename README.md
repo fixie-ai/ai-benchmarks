@@ -131,6 +131,44 @@ To generate TTS benchmarks, there are various scripts for the individual provide
 python elevenlabs_stream_benchmark.py "Haikus I find tricky, With a 5-7-5 count, But I'll give it a go"
 ```
 
+#### To run the TTS benchmark suite (ElevenLabs, Cartesia, PlayHT)
+
+1. Ensure you have Poetry installed.
+2. Set up the following environment variables or provide them as command-line arguments:
+   - ELEVEN_API_KEY
+   - CARTESIA_API_KEY
+   - PLAYHT_API_KEY
+   - PLAYHT_USER_ID
+
+3. Run the benchmark using:
+
+```
+poetry run python tts_benchmark_suite.py "Your text here" [--eleven-api-key KEY] [--cartesia-api-key KEY] [--playht-api-key KEY] [--playht-user-id ID]
+```
+
+Example:
+
+```
+poetry run python tts_benchmark_suite.py "It's simple: Overspecialize, and you breed in weakness. It's slow death." --eleven-api-key YOUR_ELEVEN_KEY --cartesia-api-key YOUR_CARTESIA_KEY --playht-api-key YOUR_PLAYHT_KEY --playht-user-id YOUR_PLAYHT_USER_ID
+```
+
+or
+
+```
+poetry run python tts_benchmark_suite.py "It's simple: Overspecialize, and you breed in weakness. It's slow death."
+```
+
+Note: If you provide the API keys and user ID as command-line arguments, they will override any existing environment variables for that run.
+
+#### Output
+
+```
+(TTFU) time to first utterance: 316.48ms   <---- Time from the outbound request start to first audio chunk received
+Average chunk latency: 234.13ms            <---- Average time between receiving consecutive audio chunks
+Total chunks received: 12                  <---- Number of audio chunks received for the entire request
+Total processing time: 2809.58ms           <---- Total time from request start of request to the final audio packet being received
+```
+
 #### Playing audio
 
 By default, only timing information for TTS is emitted. Follow the steps below to actually play out the received audio.
