@@ -106,7 +106,7 @@ def elevenlabs_text_chunker(chunks: typing.Iterator[str]) -> typing.Iterator[str
         yield f"{buffer} "
 
 
-async def elevenlabs_ws_tts(latency_data: LatencyData, config: dict):
+async def elevenlabs_ws_tts(latency_data: LatencyData, config: dict) -> bytes:
     """Eleven Labs WebSocket raw implementation"""
     uri = f"wss://api.elevenlabs.io/v1/text-to-speech/{config['voice_id']}/stream-input?model_id={config['model']}&optimize_streaming_latency={config.get('optimize_streaming_latency', 0)}&output_format={config.get('output_format', 'mp3_44100_128')}"
     async with websockets.connect(uri) as websocket:
@@ -167,7 +167,7 @@ async def elevenlabs_ws_tts(latency_data: LatencyData, config: dict):
     return b"".join(audio_chunks)
 
 
-async def cartesia_tts(latency_data: LatencyData, config: dict):
+async def cartesia_tts(latency_data: LatencyData, config: dict) -> bytes:
     """Cartesia TTS WebSocket raw implementation"""
     uri = (
         f"wss://api.cartesia.ai/tts/websocket"
@@ -215,7 +215,7 @@ async def cartesia_tts(latency_data: LatencyData, config: dict):
     return b"".join(audio_chunks)
 
 
-async def playht_grpc_tts(latency_data: LatencyData, config: dict):
+async def playht_grpc_tts(latency_data: LatencyData, config: dict) -> bytes:
     """PlayHT TTS gRPC streaming implementation using raw gRPC client"""
     # It seems that the playht grpc api is not working, is this the right
     # address?
@@ -272,7 +272,7 @@ async def playht_grpc_tts(latency_data: LatencyData, config: dict):
     return b"".join(audio_chunks)
 
 
-async def playht_python_sdk_tts(latency_data: LatencyData, config: dict):
+async def playht_python_sdk_tts(latency_data: LatencyData, config: dict) -> bytes:
     """PlayHT TTS gRPC streaming implementation using the playht python sdk"""
     client = AsyncClient(
         user_id=config["user_id"],
@@ -362,7 +362,7 @@ async def main():
                 "output_format": {
                     "container": "raw",
                     "encoding": "pcm_s16le",
-                    "sample_rate": 8000,
+                    "sample_rate": 44100,
                 },
                 "language": "en",
                 "add_timestamps": False,
