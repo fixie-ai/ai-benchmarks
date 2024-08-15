@@ -536,7 +536,7 @@ def _get_prompt(mode: str) -> List[str]:
         ]
     elif mode == "audio":
         return [
-            "Listen to the following audio and provide a response:",
+            "Listen and respond to the following:",
             "--file",
             "media/audio/boolq.wav",
         ]
