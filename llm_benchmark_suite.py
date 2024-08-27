@@ -248,6 +248,18 @@ class _OvhLlm(_Llm):
         )
 
 
+class _CerebrasLlm(_Llm):
+    """See https://docs.cerebras.ai/en/latest/wsc/Model-zoo/MZ-overview.html#list-of-models"""
+
+    def __init__(self, model: str, display_model: Optional[str] = None):
+        super().__init__(
+            model,
+            "api.cerebras.ai/" + (display_model or model),
+            api_key=os.getenv("CEREBRAS_API_KEY"),
+            base_url="https://api.cerebras.ai/v1",
+        )
+
+
 def _text_models():
     AZURE_EASTUS2_OPENAI_API_KEY = os.getenv("AZURE_EASTUS2_OPENAI_API_KEY")
     return [
@@ -358,6 +370,7 @@ def _text_models():
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", LLAMA_31_70B_CHAT_FP8
         ),
+        _CerebrasLlm("llama3.1-70b", LLAMA_31_70B_CHAT),
         # _OvhLlm("llama-3p1-8b-instruct", LLAMA_31_8B_CHAT),
         # Llama 3.1 8b
         # _DatabricksLlm("databricks-meta-llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
@@ -371,6 +384,7 @@ def _text_models():
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", LLAMA_31_8B_CHAT_FP8
         ),
+        _CerebrasLlm("llama3.1-8b", LLAMA_31_8B_CHAT),
         # _OvhLlm("llama-3p1-70b-instruct", LLAMA_31_70B_CHAT),
         # Llama 3 70b
         _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),

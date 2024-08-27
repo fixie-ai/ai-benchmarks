@@ -240,7 +240,7 @@ async def main(args: argparse.Namespace):
     task0_metrics = contexts[0].metrics
     if not chosen:
         if args.format == FMT_DEFAULT:
-            print(f"No successful API calls for {init_ctx.name}")
+            print(f"No successful API calls for {init_ctx.name}. Sample error: {task0_metrics.error}")
         return task0_metrics
 
     # Print results.
