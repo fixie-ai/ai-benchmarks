@@ -243,7 +243,7 @@ class _OvhLlm(_Llm):
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             "",
-            "endpoints.ai.cloud.ovh.net/" + display_model,
+            "cloud.ovh.net/" + display_model,
             base_url=f"https://{model}.endpoints.kepler.ai.cloud.ovh.net/api/openai_compat/v1",
         )
 
@@ -254,7 +254,7 @@ class _CerebrasLlm(_Llm):
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
-            "api.cerebras.ai/" + (display_model or model),
+            "cerebras.ai/" + (display_model or model),
             api_key=os.getenv("CEREBRAS_API_KEY"),
             base_url="https://api.cerebras.ai/v1",
         )
