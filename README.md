@@ -10,6 +10,7 @@ Large Language Models (LLMs):
 - Llama2 and 3 from several different providers, including
   - Anyscale
   - Azure
+  - Cerebras
   - Cloudflare
   - Groq
   - OctoAI
