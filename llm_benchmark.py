@@ -273,7 +273,7 @@ async def main(args: argparse.Namespace):
         assert r.output
         minimal_output = r.error or r.output.replace("\n", "\\n").strip()[:64]
         print(
-            f"| {r.model:42} | {r.ttr:4.2f} | {r.ttft:4.2f} | {r.tps:3.0f} "
+            f"| {r.model:42} | {r.ttr:4.2f} | {r.ttft:4.2f} | {r.tps:4.0f} "
             f"| {r.output_tokens:3} | {r.total_time:5.2f} | {minimal_output} |"
         )
     elif args.format == "json":

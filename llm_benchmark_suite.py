@@ -579,9 +579,9 @@ def _format_response(
         return response.to_json(indent=2), "application/json"
     else:
         s = (
-            "| Provider/Model                             | TTR  | TTFT | TPS | ITk  | OTk | ITim | OTim | Total |"
+            "| Provider/Model                             | TTR  | TTFT | TPS  | ITk  | OTk | ITim | OTim | Total |"
             f" {'Response':{dlen}.{dlen}} |\n"
-            "| :----------------------------------------- | ---: | ---: | --: | ---: | --: | ---: | ---: | ----: |"
+            "| :----------------------------------------- | ---: | ---: | ---: | ---: | --: | ---: | ---: | ----: |"
             f" {':--':-<{dlen}.{dlen}} |\n"
         )
 
@@ -600,7 +600,7 @@ def _format_response(
             total_time = r.total_time or 0.0
             output = (r.error or r.output).strip().replace("\n", "\\n")
             s += (
-                f"| {r.model[:42]:42} | {ttr:4.2f} | {ttft:4.2f} | {tps:3.0f} "
+                f"| {r.model[:42]:42} | {ttr:4.2f} | {ttft:4.2f} | {tps:4.0f} "
                 f"| {in_tokens:4} | {out_tokens:3} | {in_time:4.2f} | {out_time:4.2f} "
                 f"| {total_time:5.2f} | {output:{dlen}.{dlen}} |\n"
             )
