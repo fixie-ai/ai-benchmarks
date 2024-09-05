@@ -17,6 +17,7 @@ TokenGenerator = AsyncGenerator[str, None]
 ApiResult = Tuple[aiohttp.ClientResponse, TokenGenerator]
 
 AZURE_OPENAI_API_VERSION = "2024-02-15-preview"
+MAX_TPS = 9999
 MAX_TTFT = 9.99
 MAX_TOTAL_TIME = 99.99
 
@@ -145,7 +146,9 @@ class ApiContext:
         if not self.metrics.error:
             token_time = end_time - first_token_time
             self.metrics.total_time = end_time - start_time
-            self.metrics.tps = min((self.metrics.output_tokens - 1) / token_time, 999)
+            self.metrics.tps = min((self.metrics.output_tokens - 1) / token_time, MAX_TPS)
+            if self.metrics.tps == MAX_TPS:
+                self.metrics.tps = 0.0
         else:
             self.metrics.ttft = MAX_TTFT
             self.metrics.tps = 0.0
