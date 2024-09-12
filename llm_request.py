@@ -146,7 +146,9 @@ class ApiContext:
         if not self.metrics.error:
             token_time = end_time - first_token_time
             self.metrics.total_time = end_time - start_time
-            self.metrics.tps = min((self.metrics.output_tokens - 1) / token_time, MAX_TPS)
+            self.metrics.tps = min(
+                (self.metrics.output_tokens - 1) / token_time, MAX_TPS
+            )
             if self.metrics.tps == MAX_TPS:
                 self.metrics.tps = 0.0
         else:
@@ -293,7 +295,7 @@ async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiRe
     # Some providers require opt-in for stream stats, but some providers don't like this opt-in.
     # Regardless of opt-in, Azure and ovh.net don't return stream stats at the moment.
     # See https://github.com/Azure/azure-rest-api-specs/issues/25062
-    if not any(p in ctx.name for p in ["azure", "databricks", "fireworks"]):
+    if not any(p in ctx.name for p in ["azure", "databricks", "fireworks", "mistral"]):
         kwargs["stream_options"] = {"include_usage": True}
     data = make_openai_chat_body(ctx, **kwargs)
     return await post(ctx, url, headers, data, openai_chunk_gen)
