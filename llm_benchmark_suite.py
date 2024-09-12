@@ -40,7 +40,6 @@ LLAMA_3_8B_CHAT_FP8 = "llama-3-8b-chat-fp8"
 LLAMA_3_8B_CHAT_FP4 = "llama-3-8b-chat-fp4"
 MIXTRAL_8X7B_INSTRUCT = "mixtral-8x7b-instruct"
 MIXTRAL_8X7B_INSTRUCT_FP8 = "mixtral-8x7b-instruct-fp8"
-PHI_2 = "phi-2"
 
 
 parser = argparse.ArgumentParser()
@@ -180,6 +179,18 @@ class _GroqLlm(_Llm):
             "groq.com/" + (display_model or model),
             api_key=os.getenv("GROQ_API_KEY"),
             base_url="https://api.groq.com/openai/v1",
+        )
+
+
+class _MistralLlm(_Llm):
+    """See https://docs.mistral.ai/getting-started/models"""
+
+    def __init__(self, model: str, display_model: Optional[str] = None):
+        super().__init__(
+            model,
+            "mistral.ai/" + (display_model or model),
+            api_key=os.getenv("MISTRAL_API_KEY"),
+            base_url="https://api.mistral.ai/v1",
         )
 
 
@@ -330,6 +341,9 @@ def _text_models():
         _Llm("gemini-pro"),
         _Llm(GEMINI_1_5_PRO),
         _Llm(GEMINI_1_5_FLASH),
+        # Mistral
+        _MistralLlm("mistral-large-latest", "mistral-large"),
+        _MistralLlm("open-mistral-nemo", "mistral-nemo"),
         # Mistral 8x7b
         _DatabricksLlm("databricks-mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _DeepInfraLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
@@ -484,6 +498,7 @@ def _image_models():
         _FireworksLlm(
             "accounts/fireworks/models/phi-3-vision-128k-instruct", "phi-3-vision"
         ),
+        _MistralLlm("pixtral-latest", "pixtral"),
     ]
 
 
