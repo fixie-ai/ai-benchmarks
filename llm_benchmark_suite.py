@@ -124,6 +124,18 @@ class _Llm:
         return await llm_benchmark.run(full_argv)
 
 
+class _CerebrasLlm(_Llm):
+    """See https://docs.cerebras.ai/en/latest/wsc/Model-zoo/MZ-overview.html#list-of-models"""
+
+    def __init__(self, model: str, display_model: Optional[str] = None):
+        super().__init__(
+            model,
+            "cerebras.ai/" + (display_model or model),
+            api_key=os.getenv("CEREBRAS_API_KEY"),
+            base_url="https://api.cerebras.ai/v1",
+        )
+
+
 class _CloudflareLlm(_Llm):
     """See https://developers.cloudflare.com/workers-ai/models/"""
 
@@ -224,6 +236,17 @@ class _OctoLlm(_Llm):
         )
 
 
+class _OvhLlm(_Llm):
+    """See https://llama-3-70b-instruct.endpoints.kepler.ai.cloud.ovh.net/doc"""
+
+    def __init__(self, model: str, display_model: Optional[str] = None):
+        super().__init__(
+            "",
+            "cloud.ovh.net/" + display_model,
+            base_url=f"https://{model}.endpoints.kepler.ai.cloud.ovh.net/api/openai_compat/v1",
+        )
+
+
 class _PerplexityLlm(_Llm):
     """See https://docs.perplexity.ai/docs/model-cards"""
 
@@ -248,26 +271,15 @@ class _TogetherLlm(_Llm):
         )
 
 
-class _OvhLlm(_Llm):
-    """See https://llama-3-70b-instruct.endpoints.kepler.ai.cloud.ovh.net/doc"""
-
-    def __init__(self, model: str, display_model: Optional[str] = None):
-        super().__init__(
-            "",
-            "cloud.ovh.net/" + display_model,
-            base_url=f"https://{model}.endpoints.kepler.ai.cloud.ovh.net/api/openai_compat/v1",
-        )
-
-
-class _CerebrasLlm(_Llm):
-    """See https://docs.cerebras.ai/en/latest/wsc/Model-zoo/MZ-overview.html#list-of-models"""
+class _UltravoxLlm(_Llm):
+    """See https://docs.ultravox.ai/docs/models"""
 
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             model,
-            "cerebras.ai/" + (display_model or model),
-            api_key=os.getenv("CEREBRAS_API_KEY"),
-            base_url="https://api.cerebras.ai/v1",
+            "ultravox.ai/" + (display_model or model),
+            api_key=os.getenv("ULTRAVOX_API_KEY"),
+            base_url="https://ultravox.api.fixie.ai/v1",
         )
 
 
@@ -507,11 +519,8 @@ def _audio_models():
         # _Llm(GPT_4O), doesn't support audio yet
         _Llm(GEMINI_1_5_PRO),
         _Llm(GEMINI_1_5_FLASH),
-        _Llm(
-            "fixie-ai/ultravox-v0.4",
-            base_url="https://ultravox.api.fixie.ai/v1",
-            api_key=os.getenv("ULTRAVOX_API_KEY"),
-        ),
+        _UltravoxLlm("fixie-ai/ultravox-v0.4", "ultravox-v0.4-8b"),
+        _UltravoxLlm("fixie-ai/ultravox-70B", "ultravox-v0.4-70b"),
         _Llm(
             "fixie-ai/ultravox-v0.2",
             "baseten.co/ultravox-v0.2",
