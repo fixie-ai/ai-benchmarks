@@ -374,6 +374,7 @@ def _text_models():
         # _OvhLlm("llama-3p1-405b-instruct", LLAMA_31_405B_CHAT),
         # Llama 3.1 70b
         _CerebrasLlm("llama3.1-70b", LLAMA_31_70B_CHAT),
+        _CloudflareLlm("@cf/meta/llama-3.1-70b-preview", LLAMA_31_70B_CHAT),
         # _DatabricksLlm("databricks-meta-llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
         _DeepInfraLlm("meta-llama/Meta-Llama-3.1-70B-Instruct", LLAMA_31_70B_CHAT),
         _FireworksLlm(
@@ -389,6 +390,7 @@ def _text_models():
         # _OvhLlm("llama-3p1-8b-instruct", LLAMA_31_8B_CHAT),
         # Llama 3.1 8b
         _CerebrasLlm("llama3.1-8b", LLAMA_31_8B_CHAT),
+        _CloudflareLlm("@cf/meta/llama-3.1-8b-preview", LLAMA_31_8B_CHAT),
         # _DatabricksLlm("databricks-meta-llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
         _DeepInfraLlm("meta-llama/Meta-Llama-3.1-8B-Instruct", LLAMA_31_8B_CHAT),
         _FireworksLlm(
