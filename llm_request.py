@@ -217,13 +217,12 @@ def make_openai_messages(ctx: ApiContext):
 
     content: List[Dict[str, Any]] = [{"type": "text", "text": ctx.prompt}]
     for file in ctx.files:
-        # if not file.mime_type.startswith("image/"):
-        #    raise ValueError(f"Unsupported file type: {file.mime_type}")
         url = f"data:{file.mime_type};base64,{file.base64_data}"
-        image_url = {"url": url}
+        media_url = {"url": url}
+        url_type = "audio_url" if file.is_audio else "image_url"
         if ctx.detail:
-            image_url["detail"] = ctx.detail
-        content.append({"type": "image_url", "image_url": image_url})
+            media_url["detail"] = ctx.detail
+        content.append({"type": url_type, url_type: media_url})
     return [{"role": "user", "content": content}]
 
 
