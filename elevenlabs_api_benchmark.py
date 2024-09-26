@@ -1,13 +1,14 @@
-import requests
-import json
-import time
-import os
 import argparse
 import asyncio
-import websockets
 import base64
+import json
 import logging
+import os
+import time
 from typing import Iterator
+
+import requests
+import websockets
 
 logging.basicConfig(level=logging.INFO)
 
@@ -20,7 +21,7 @@ DEFAULT_VOICE_ID = "pNInz6obpgDQGcFmaJgB"
 DEFAULT_OUTPUT_FORMAT = "mp3_44100"
 DEFAULT_STABILITY = 0.5
 DEFAULT_SIMILARITY_BOOST = False
-DEFAULT_XI_API_KEY = os.environ["ELEVEN_API_KEY"],
+DEFAULT_XI_API_KEY = (os.environ["ELEVEN_API_KEY"],)
 
 # Configuration for HTTP API
 DEFAULT_CHUNK_SIZE = 7868
@@ -35,42 +36,70 @@ try_trigger_generation = True
 # Argument parsing
 parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    description='''\
+    description="""\
 The script allows for comprehensive benchmarking of the 11Labs API for text-to-speech generation to achieve the lowest possible latency, given any combination of parameters.
-''')
+""",
+)
 
-API_group = parser.add_argument_group('API Type')
-API_group.add_argument("--API", choices=["http", "websocket"], required=True,
-                       help="API type: 'http' or 'websocket'")
+API_group = parser.add_argument_group("API Type")
+API_group.add_argument(
+    "--API",
+    choices=["http", "websocket"],
+    required=True,
+    help="API type: 'http' or 'websocket'",
+)
 
-input_group = parser.add_argument_group('Input Parameters')
-input_group.add_argument("--text", default=DEFAULT_TEXT,
-                         help="Input text for speech synthesis")
-input_group.add_argument("--model", default=DEFAULT_MODEL_ID,
-                         help="Model ID for speech synthesis. Options: 'eleven_monolingual_v1', 'eleven_english_v2', 'eleven_multilingual_v1', 'eleven_multilingual_v2'")
+input_group = parser.add_argument_group("Input Parameters")
+input_group.add_argument(
+    "--text", default=DEFAULT_TEXT, help="Input text for speech synthesis"
+)
+input_group.add_argument(
+    "--model",
+    default=DEFAULT_MODEL_ID,
+    help="Model ID for speech synthesis. Options: 'eleven_monolingual_v1', 'eleven_english_v2', 'eleven_multilingual_v1', 'eleven_multilingual_v2'",
+)
 
-output_group = parser.add_argument_group('Output Parameters')
-output_group.add_argument("--num_samples", type=int, default=DEFAULT_SAMPLES,
-                          help="Number of speech samples to generate")
-output_group.add_argument("--output_format", default=DEFAULT_OUTPUT_FORMAT,
-                          help="Speech output format. Options: 'mp3_44100', 'pcm_16000', 'pcm_22050', 'pcm_24000', 'pcm_44100'")
+output_group = parser.add_argument_group("Output Parameters")
+output_group.add_argument(
+    "--num_samples",
+    type=int,
+    default=DEFAULT_SAMPLES,
+    help="Number of speech samples to generate",
+)
+output_group.add_argument(
+    "--output_format",
+    default=DEFAULT_OUTPUT_FORMAT,
+    help="Speech output format. Options: 'mp3_44100', 'pcm_16000', 'pcm_22050', 'pcm_24000', 'pcm_44100'",
+)
 
-http_group = parser.add_argument_group('HTTP API Parameters')
-http_group.add_argument("--chunk_size", type=int, default=DEFAULT_CHUNK_SIZE,
-                        help="Size of the first playable chunk in bytes, default is 7868")
+http_group = parser.add_argument_group("HTTP API Parameters")
+http_group.add_argument(
+    "--chunk_size",
+    type=int,
+    default=DEFAULT_CHUNK_SIZE,
+    help="Size of the first playable chunk in bytes, default is 7868",
+)
 
-websocket_group = parser.add_argument_group('WebSocket API Parameters')
-websocket_group.add_argument("--latency_optimizer", type=int, default=DEFAULT_LATENCY_OPTIMIZER,
-                             help="Latency optimization level. Default is 4. Lower to 3 or less to improve pronunciation of numbers and dates.")
-websocket_group.add_argument("--text_chunker", action="store_true", default=False,
-                             help="Enable text chunker for input streaming. This chunks text blocks and sets last char to space, simulating the default behavior of the 11labs Library.")
+websocket_group = parser.add_argument_group("WebSocket API Parameters")
+websocket_group.add_argument(
+    "--latency_optimizer",
+    type=int,
+    default=DEFAULT_LATENCY_OPTIMIZER,
+    help="Latency optimization level. Default is 4. Lower to 3 or less to improve pronunciation of numbers and dates.",
+)
+websocket_group.add_argument(
+    "--text_chunker",
+    action="store_true",
+    default=False,
+    help="Enable text chunker for input streaming. This chunks text blocks and sets last char to space, simulating the default behavior of the 11labs Library.",
+)
 
-general_group = parser.add_argument_group('General Parameters')
-general_group.add_argument("--voice_id", default=DEFAULT_VOICE_ID,
-                           help="ID of the voice for speech synthesis")
+general_group = parser.add_argument_group("General Parameters")
+general_group.add_argument(
+    "--voice_id", default=DEFAULT_VOICE_ID, help="ID of the voice for speech synthesis"
+)
 
 args = parser.parse_args()
-
 
 
 # Text chunker function
@@ -90,6 +119,7 @@ def text_chunker(text: str) -> Iterator[str]:
                 buffer = ""
     if buffer != "":
         yield buffer + " "
+
 
 # Simulate text stream function
 def simulate_text_stream():
@@ -111,6 +141,7 @@ def simulate_text_stream():
         time.sleep(delay_time)
         yield text_chunk
 
+
 # Truncate audio string function
 def truncate_audio_string(audio_string):
     """
@@ -119,6 +150,7 @@ def truncate_audio_string(audio_string):
     if len(audio_string) > max_length:
         return audio_string[:max_length] + "..."
     return audio_string
+
 
 # HTTP API request function
 def http_api_request():
@@ -131,14 +163,19 @@ def http_api_request():
     data = {
         "text": args.text,
         "model_id": args.model,
-        "voice_settings": {"stability": DEFAULT_STABILITY, "similarity_boost": DEFAULT_SIMILARITY_BOOST},
+        "voice_settings": {
+            "stability": DEFAULT_STABILITY,
+            "similarity_boost": DEFAULT_SIMILARITY_BOOST,
+        },
     }
     response_latencies = []
     chunk_latencies = []
     for i in range(args.num_samples):
         print(f"\nAPI Call {i+1}:")
         start_time = time.perf_counter()
-        response = requests.post(url, headers=headers, data=json.dumps(data), stream=True)
+        response = requests.post(
+            url, headers=headers, data=json.dumps(data), stream=True
+        )
         if not response.ok:
             print("Error: " + response.json()["detail"]["message"])
             exit(1)
@@ -150,11 +187,11 @@ def http_api_request():
         for chunk in response.iter_content(chunk_size=DEFAULT_CHUNK_SIZE):
             if chunk:
                 audio_data += chunk
-                if len(audio_data) >= args.chunk_size:  
+                if len(audio_data) >= args.chunk_size:
                     chunk_received_time = time.perf_counter()
                     chunk_latency = (chunk_received_time - start_time) * 1000
                     chunk_latencies.append(chunk_latency)
-                   
+
                     print(f"  First Playable Chunk (Body) Time: {chunk_latency:.2f} ms")
                     break
 
@@ -162,7 +199,13 @@ def http_api_request():
     median_response_latency = sorted(response_latencies)[len(response_latencies) // 2]
     average_chunk_latency = sum(chunk_latencies) / len(chunk_latencies)
     median_chunk_latency = sorted(chunk_latencies)[len(chunk_latencies) // 2]
-    return average_response_latency, median_response_latency, average_chunk_latency, median_chunk_latency
+    return (
+        average_response_latency,
+        median_response_latency,
+        average_chunk_latency,
+        median_chunk_latency,
+    )
+
 
 async def websocket_api_request():
     logging.basicConfig(level=logging.INFO)  # Configure logging inside the function
@@ -210,7 +253,9 @@ async def websocket_api_request():
                     chunk_received_time = time.time()
                     if not first_chunk_received:
                         first_chunk_received = True
-                        first_chunk_time = chunk_received_time - start_time  # Calculate the time from the request to the first chunk
+                        first_chunk_time = (
+                            chunk_received_time - start_time
+                        )  # Calculate the time from the request to the first chunk
                     chunk_times.append(chunk_received_time - connection_open_time)
             except asyncio.TimeoutError:
                 pass
@@ -234,20 +279,44 @@ async def websocket_api_request():
                 break
         connection_close_time = time.time()
         total_time_websocket_was_open = connection_close_time - connection_open_time
-    return time_to_open_connection, first_chunk_time, chunk_times, total_time_websocket_was_open
+    return (
+        time_to_open_connection,
+        first_chunk_time,
+        chunk_times,
+        total_time_websocket_was_open,
+    )
+
 
 # Main function
 if args.API == "http":
-    average_response_latency, median_response_latency, average_chunk_latency, median_chunk_latency = http_api_request()
-    print(f"\nAverage Initial Response (Header) Time: {average_response_latency:.2f} ms")
+    (
+        average_response_latency,
+        median_response_latency,
+        average_chunk_latency,
+        median_chunk_latency,
+    ) = http_api_request()
+    print(
+        f"\nAverage Initial Response (Header) Time: {average_response_latency:.2f} ms"
+    )
     print(f"Median Initial Response (Header) Time: {median_response_latency:.2f} ms")
     print(f"Average First Playable Chunk (Body) Time: {average_chunk_latency:.2f} ms")
     print(f"Median First Playable Chunk (Body) Time: {median_chunk_latency:.2f} ms")
 elif args.API == "websocket":
-    time_to_open_connection, first_chunk_time, chunk_times, total_time_websocket_was_open = asyncio.run(websocket_api_request())
+    (
+        time_to_open_connection,
+        first_chunk_time,
+        chunk_times,
+        total_time_websocket_was_open,
+    ) = asyncio.run(websocket_api_request())
     print(f"\nTime to open connection: {time_to_open_connection:.4f} seconds")
     if first_chunk_time is not None:
-        print(f"Time from request to first chunk: {first_chunk_time:.4f} seconds")  # Updated print statement
+        print(
+            f"Time from request to first chunk: {first_chunk_time:.4f} seconds"
+        )  # Updated print statement
     for i, chunk_time in enumerate(chunk_times, start=1):
-        print(f"Time to receive chunk {i} after request: {chunk_time:.4f} seconds")  # Updated print statement
-    print(f"Total time WebSocket connection was open: {total_time_websocket_was_open:.4f} seconds")
+        print(
+            f"Time to receive chunk {i} after request: {chunk_time:.4f} seconds"
+        )  # Updated print statement
+    print(
+        f"Total time WebSocket connection was open: {total_time_websocket_was_open:.4f} seconds"
+    )

@@ -1,15 +1,18 @@
-import requests
-import json
-import time
-import os
 import argparse
+import json
+import os
+import time
+
+import requests
 
 DEFAULT_SAMPLES = 10
 DEFAULT_TEXT = "I'm calling for Jim."
 DEFAULT_MODEL_ID = "eleven_monolingual_v1"
-DEFAULT_CHUNK_SIZE = 7868  #This defines the size of the first playable chunk in bytes, which is 7868, roughly equivalent to half a second of audio
-DEFAULT_LATENCY_OPTIMIZER = 4  # This can be set to values 1 through 4, with 4 disabling the text normalizer 
-DEFAULT_VOICE_ID = "flq6f7yk4E4fJM5XTYuZ"  
+DEFAULT_CHUNK_SIZE = 7868  # This defines the size of the first playable chunk in bytes, which is 7868, roughly equivalent to half a second of audio
+DEFAULT_LATENCY_OPTIMIZER = (
+    4  # This can be set to values 1 through 4, with 4 disabling the text normalizer
+)
+DEFAULT_VOICE_ID = "flq6f7yk4E4fJM5XTYuZ"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("text", nargs="?", default=DEFAULT_TEXT)
@@ -77,14 +80,14 @@ for i in range(args.num_samples):
     for chunk in response.iter_content(chunk_size=1024):
         if chunk:
             audio_data += chunk
-            if len(audio_data) >= args.chunk_size:  
+            if len(audio_data) >= args.chunk_size:
                 chunk_received_time = time.perf_counter()
                 chunk_latency = (chunk_received_time - start_time) * 1000
                 chunk_latencies.append(chunk_latency)
                 print(f"  First Playable Chunk (Body) Time: {chunk_latency:.2f} ms")
                 break
 
-    with open(f'audio_sample_{i+1}.mp3', 'wb') as f:
+    with open(f"audio_sample_{i+1}.mp3", "wb") as f:
         f.write(audio_data)
 
 average_response_latency = sum(response_latencies) / len(response_latencies)
@@ -96,4 +99,3 @@ average_chunk_latency = sum(chunk_latencies) / len(chunk_latencies)
 median_chunk_latency = sorted(chunk_latencies)[len(chunk_latencies) // 2]
 print(f"\nAverage First Playable Chunk (Body) Time: {average_chunk_latency:.2f} ms")
 print(f"Median First Playable Chunk (Body) Time: {median_chunk_latency:.2f} ms")
-        
