@@ -366,7 +366,7 @@ def _text_models():
             "accounts/fireworks/models/mixtral-8x7b-instruct-hf", MIXTRAL_8X7B_INSTRUCT
         ),
         _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT_FP8),
-        _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
+        _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1-turbo", MIXTRAL_8X7B_INSTRUCT),
         _OctoLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3.1 405b
@@ -378,7 +378,7 @@ def _text_models():
             "accounts/fireworks/models/llama-v3p1-405b-instruct", LLAMA_31_405B_CHAT_FP8
         ),
         _GroqLlm("llama-3.1-405b-reasoning", LLAMA_31_405B_CHAT_FP8),
-        _NvidiaLlm("meta/llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
+        _NvidiaLlm("meta/llama-3.1-405b-instruct-turbo", LLAMA_31_405B_CHAT),
         _OctoLlm("meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", LLAMA_31_405B_CHAT_FP8
@@ -393,7 +393,7 @@ def _text_models():
             "accounts/fireworks/models/llama-v3p1-70b-instruct", LLAMA_31_70B_CHAT_FP8
         ),
         _GroqLlm("llama-3.1-70b-versatile", LLAMA_31_70B_CHAT_FP8),
-        _NvidiaLlm("meta/llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
+        _NvidiaLlm("meta/llama-3.1-70b-instruct-turbo", LLAMA_31_70B_CHAT),
         _OctoLlm("meta-llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
         _PerplexityLlm("llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
         _TogetherLlm(
@@ -409,7 +409,7 @@ def _text_models():
             "accounts/fireworks/models/llama-v3p1-8b-instruct", LLAMA_31_8B_CHAT_FP8
         ),
         _GroqLlm("llama-3.1-8b-instant", LLAMA_31_8B_CHAT_FP8),
-        _NvidiaLlm("meta/llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
+        _NvidiaLlm("meta/llama-3.1-8b-instruct-turbo", LLAMA_31_8B_CHAT),
         _OctoLlm("meta-llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
         _PerplexityLlm("llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
         _TogetherLlm(
@@ -426,7 +426,6 @@ def _text_models():
             "accounts/fireworks/models/llama-v3-70b-instruct-hf", LLAMA_3_70B_CHAT
         ),
         _GroqLlm("llama3-70b-8192", LLAMA_3_70B_CHAT_FP8),
-        _NvidiaLlm("meta/llama3-70b-instruct", LLAMA_3_70B_CHAT),
         _OctoLlm("meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _TogetherLlm(
@@ -449,7 +448,6 @@ def _text_models():
             "accounts/fireworks/models/llama-v3-8b-instruct-hf", LLAMA_3_8B_CHAT
         ),
         _GroqLlm("llama3-8b-8192", LLAMA_3_8B_CHAT_FP8),
-        _NvidiaLlm("meta/llama3-8b-instruct", LLAMA_3_8B_CHAT),
         _OctoLlm("meta-llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Meta-Llama-3-8B-Instruct-Turbo", LLAMA_3_8B_CHAT_FP8),
@@ -487,11 +485,8 @@ def _tools_models():
         #    "accounts/fireworks/models/llama-v3p1-405b-instruct", LLAMA_31_405B_CHAT_FP8
         # ), returns "FUNCTION" and the call as text
         _GroqLlm("llama-3.1-405b-reasoning", LLAMA_31_405B_CHAT_FP8),
-        _NvidiaLlm("meta/llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
         _GroqLlm("llama-3.1-70b-versatile", LLAMA_31_70B_CHAT_FP8),
-        _NvidiaLlm("meta/llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
         _GroqLlm("llama-3.1-8b-instant", LLAMA_31_8B_CHAT_FP8),
-        _NvidiaLlm("meta/llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
         _GroqLlm("llama3-groq-70b-8192-tool-use-preview"),
         _GroqLlm("llama3-groq-8b-8192-tool-use-preview"),
     ]
