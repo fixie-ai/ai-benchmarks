@@ -16,6 +16,7 @@ import llm_request
 DEFAULT_DISPLAY_LENGTH = 64
 DEFAULT_GCS_BUCKET = "thefastest-data"
 
+GPT_4O_REALTIME_PREVIEW = "gpt-4o-realtime-preview-2024-10-01"
 GPT_4O = "gpt-4o"
 GPT_4O_MINI = "gpt-4o-mini"
 GPT_4_TURBO = "gpt-4-turbo"
@@ -287,6 +288,7 @@ def _text_models():
     AZURE_EASTUS2_OPENAI_API_KEY = os.getenv("AZURE_EASTUS2_OPENAI_API_KEY")
     return [
         # GPT-4o
+        _Llm(GPT_4O_REALTIME_PREVIEW),
         _Llm(GPT_4O),
         _Llm(
             GPT_4O,
@@ -518,7 +520,7 @@ def _image_models():
 
 def _audio_models():
     return [
-        # _Llm(GPT_4O), doesn't support audio yet
+        _Llm(GPT_4O_REALTIME_PREVIEW),
         _Llm(GEMINI_1_5_PRO),
         _Llm(GEMINI_1_5_FLASH),
         _UltravoxLlm("fixie-ai/ultravox-v0.4", "ultravox-v0.4-8b"),
