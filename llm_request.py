@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import base64
 import dataclasses
+import io
 import json
 import mimetypes
 import os
@@ -12,6 +13,9 @@ from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple
 
 import aiohttp
 import dataclasses_json
+import numpy as np
+import soundfile as sf
+import soxr
 
 TokenGenerator = AsyncGenerator[str, None]
 ApiResult = Tuple[aiohttp.ClientResponse, TokenGenerator]
@@ -91,6 +95,7 @@ class ApiContext:
     api_key: Optional[str] = None
     base_url: Optional[str] = None
     peft: Optional[str] = None
+    ws: Optional[aiohttp.ClientWebSocketResponse] = None
 
     def __init__(self, session, index, name, func, args, prompt, files, tools):
         self.session = session
@@ -109,6 +114,10 @@ class ApiContext:
         self.base_url = args.base_url
         self.peft = args.peft
         self.metrics = ApiMetrics(model=self.name)
+
+    @property
+    def is_warmup(self):
+        return self.index == -1
 
     async def run(self, on_token: Optional[Callable[["ApiContext", str], None]] = None):
         response = None
@@ -226,6 +235,20 @@ def make_openai_messages(ctx: ApiContext):
     return [{"role": "user", "content": content}]
 
 
+def make_openai_ws_message(ctx: ApiContext):
+    content = [{"type": "input_text", "text": ctx.prompt}]
+    for file in ctx.files:
+        if file.is_audio:
+            audio, sr = sf.read(io.BytesIO(file.data))
+            audio_24k = soxr.resample(audio, sr, 24000)
+            audio_pcm = (audio_24k * 32767).astype(np.int16).tobytes()
+            b64_data = base64.b64encode(audio_pcm).decode("utf-8")
+            content.append({"type": "input_audio", "audio": b64_data})
+        else:
+            raise NotImplementedError("Images not yet supported in WebSocket mode")
+    return {"type": "message", "role": "user", "content": content}
+
+
 def make_openai_chat_body(ctx: ApiContext, **kwargs):
     # Models differ in how they want to receive the prompt, so
     # we let the caller specify the key and format.
@@ -304,6 +327,68 @@ async def openai_embed(ctx: ApiContext) -> ApiResult:
     url, headers = make_openai_url_and_headers(ctx, "/embeddings")
     data = {"model": ctx.model, "input": ctx.prompt}
     return await post(ctx, url, headers, data)
+
+
+class WebSocketResponse:
+    """Mirrors the aiohttp.ClientHttpResponse interface, but for a WebSocket."""
+
+    def __init__(self, ctx: ApiContext):
+        self.ctx = ctx
+
+    @property
+    def ok(self):
+        return True
+
+    async def release(self):
+        if not self.ctx.is_warmup:
+            await self.ctx.ws.close()
+
+
+async def openai_ws(ctx: ApiContext) -> ApiResult:
+    async def warmup_gen() -> TokenGenerator:
+        yield " "
+
+    async def chunk_gen(ctx: ApiContext) -> TokenGenerator:
+        async for msg in ctx.ws:
+            chunk = json.loads(msg.data)
+            match chunk["type"]:
+                case "error":
+                    print(chunk)
+                    break
+                case "response.text.delta":
+                    yield chunk["delta"]
+                case "response.audio_transcript.delta":
+                    yield chunk["delta"]
+                case "response.done":
+                    response = chunk["response"]
+                    ctx.metrics.input_tokens = response["usage"]["input_tokens"]
+                    ctx.metrics.output_tokens = response["usage"]["output_tokens"]
+                    break
+
+    if not ctx.ws:
+        base_url = ctx.base_url or "wss://api.openai.com/v1/realtime"
+        url = f"{base_url}?model={ctx.model}"
+        api_key = get_api_key(ctx, "OPENAI_API_KEY")
+        headers = {"Authorization": f"Bearer {api_key}", "OpenAI-Beta": "realtime=v1"}
+        ctx.ws = await ctx.session.ws_connect(url, headers=headers)
+        if ctx.is_warmup:
+            return WebSocketResponse(ctx), warmup_gen()
+
+    create_item = {
+        "type": "conversation.item.create",
+        "item": make_openai_ws_message(ctx),
+    }
+    await ctx.ws.send_json(create_item)
+
+    modalities = ["text"]
+    if any(file.is_audio for file in ctx.files):
+        modalities.append("audio")
+    create_response = {
+        "type": "response.create",
+        "response": {"modalities": modalities},
+    }
+    await ctx.ws.send_json(create_response)
+    return WebSocketResponse(ctx), chunk_gen(ctx)
 
 
 def make_anthropic_messages(prompt: str, files: Optional[List[InputFile]] = None):
@@ -611,6 +696,10 @@ def make_context(
         case "fake":
             provider = "test"
             func = fake_chat
+        case _ if "realtime" in model:
+            func = openai_ws
+            if not args.base_url:
+                provider = "openai"
         case _ if args.base_url or model.startswith("gpt-") or model.startswith(
             "ft:gpt-"
         ):

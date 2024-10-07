@@ -195,20 +195,12 @@ async def main(args: argparse.Namespace):
     async with aiohttp.ClientSession(
         timeout=timeout, trace_configs=trace_configs, connector=connector
     ) as session:
-        init_ctx = llm_request.make_context(session, -1, args)
         contexts = [
             llm_request.make_context(session, i, args, prompt, files, tools)
             for i in range(args.num_requests)
         ]
+        name = contexts[0].name
         chosen = None
-
-        if args.warmup:
-            # Do a warmup call to make sure the connection is ready,
-            # and sleep it off to make sure it doesn't affect rate limits.
-            if args.verbose:
-                print("Making a warmup API call...")
-            await init_ctx.run()
-            await asyncio.sleep(1.0)
 
         def on_token(ctx: llm_request.ApiContext, token: str):
             nonlocal chosen
@@ -225,9 +217,22 @@ async def main(args: argparse.Namespace):
                         print("\n")
 
         num_parallel = max(min(args.parallel_requests, args.num_requests), 1)
+        warmup_contexts = [
+            llm_request.make_context(session, -1, args) for _ in range(num_parallel)
+        ]
+        if args.verbose:
+            print(f"Warming up {len(warmup_contexts)} connections...")
+        # Do a warmup call to make sure the connection is ready,
+        # and sleep it off to make sure it doesn't affect rate limits.
+        await asyncio.gather(*[ctx.run() for ctx in warmup_contexts])
+        await asyncio.sleep(1.0)
+        for i in range(len(warmup_contexts)):
+            if warmup_contexts[i].ws:
+                contexts[i].ws = warmup_contexts[i].ws
+
         if args.format == FMT_DEFAULT:
             print(
-                f"Sending {args.num_requests} API calls ({num_parallel} at a time) to {init_ctx.name}..."
+                f"Sending {args.num_requests} API calls ({num_parallel} at a time) to {name}..."
             )
         for i in range(0, args.num_requests, num_parallel):
             tasks = [
@@ -240,7 +245,9 @@ async def main(args: argparse.Namespace):
     task0_metrics = contexts[0].metrics
     if not chosen:
         if args.format == FMT_DEFAULT:
-            print(f"No successful API calls for {init_ctx.name}. Sample error: {task0_metrics.error}")
+            print(
+                f"No successful API calls for {name}. Sample error: {task0_metrics.error}"
+            )
         return task0_metrics
 
     # Print results.
