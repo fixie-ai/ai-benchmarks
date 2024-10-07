@@ -319,6 +319,9 @@ async def openai_chat(ctx: ApiContext, path: str = "/chat/completions") -> ApiRe
     # See https://github.com/Azure/azure-rest-api-specs/issues/25062
     if not any(p in ctx.name for p in ["azure", "databricks", "fireworks", "mistral"]):
         kwargs["stream_options"] = {"include_usage": True}
+    # Hack to identify our baseten deployment, which isn't contained in the URL.
+    if ctx.name.startswith("baseten"):
+        kwargs["baseten"] = {"model_id": "rwn2v41w"}
     data = make_openai_chat_body(ctx, **kwargs)
     return await post(ctx, url, headers, data, openai_chunk_gen)
 
