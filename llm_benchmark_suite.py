@@ -219,24 +219,6 @@ class _NvidiaLlm(_Llm):
         )
 
 
-class _OctoLlm(_Llm):
-    """See https://octo.ai/docs/getting-started/inference-models#serverless-endpoints"""
-
-    def __init__(
-        self,
-        model: str,
-        display_model: Optional[str] = None,
-        peft: Optional[str] = None,
-    ):
-        super().__init__(
-            model,
-            "octo.ai/" + (display_model or model),
-            api_key=os.getenv("OCTOML_API_KEY"),
-            base_url="https://text.octoai.run/v1",
-            peft=peft,
-        )
-
-
 class _OvhLlm(_Llm):
     """See https://llama-3-70b-instruct.endpoints.kepler.ai.cloud.ovh.net/doc"""
 
@@ -369,7 +351,6 @@ def _text_models():
         ),
         _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT_FP8),
         _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
-        _OctoLlm("mixtral-8x7b-instruct", MIXTRAL_8X7B_INSTRUCT),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3.1 405b
         _DatabricksLlm("databricks-meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
@@ -381,7 +362,6 @@ def _text_models():
         ),
         _GroqLlm("llama-3.1-405b-reasoning", LLAMA_31_405B_CHAT_FP8),
         _NvidiaLlm("meta/llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
-        _OctoLlm("meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", LLAMA_31_405B_CHAT_FP8
         ),
@@ -396,7 +376,6 @@ def _text_models():
         ),
         _GroqLlm("llama-3.1-70b-versatile", LLAMA_31_70B_CHAT_FP8),
         _NvidiaLlm("meta/llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
-        _OctoLlm("meta-llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
         _PerplexityLlm("llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", LLAMA_31_70B_CHAT_FP8
@@ -412,7 +391,6 @@ def _text_models():
         ),
         _GroqLlm("llama-3.1-8b-instant", LLAMA_31_8B_CHAT_FP8),
         _NvidiaLlm("meta/llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
-        _OctoLlm("meta-llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
         _PerplexityLlm("llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", LLAMA_31_8B_CHAT_FP8
@@ -429,7 +407,6 @@ def _text_models():
         ),
         _GroqLlm("llama3-70b-8192", LLAMA_3_70B_CHAT_FP8),
         _NvidiaLlm("meta/llama3-70b-instruct", LLAMA_3_70B_CHAT),
-        _OctoLlm("meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-70b-chat-hf", LLAMA_3_70B_CHAT),
         _TogetherLlm(
             "meta-llama/Meta-Llama-3-70B-Instruct-Turbo", LLAMA_3_70B_CHAT_FP8
@@ -452,7 +429,6 @@ def _text_models():
         ),
         _GroqLlm("llama3-8b-8192", LLAMA_3_8B_CHAT_FP8),
         _NvidiaLlm("meta/llama3-8b-instruct", LLAMA_3_8B_CHAT),
-        _OctoLlm("meta-llama-3-8b-instruct", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Llama-3-8b-chat-hf", LLAMA_3_8B_CHAT),
         _TogetherLlm("meta-llama/Meta-Llama-3-8B-Instruct-Turbo", LLAMA_3_8B_CHAT_FP8),
         _TogetherLlm("meta-llama/Meta-Llama-3-8B-Instruct-Lite", LLAMA_3_8B_CHAT_FP4),
@@ -461,11 +437,6 @@ def _text_models():
         _FireworksLlm(
             "accounts/fixie/models/8ab03ea85d2a4b9da659ce63db36a9b1",
             LLAMA_3_8B_CHAT + "-lora-8ab0",
-        ),
-        _OctoLlm(
-            "openpipe-llama-3-8b-32k",
-            "openpipe-llama-3-8b-32k-lora-01j3",
-            peft="asset_01j318x0k2f7bv3nc5np6byn7s",
         ),
     ]
 
