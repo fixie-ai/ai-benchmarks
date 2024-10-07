@@ -350,7 +350,7 @@ def _text_models():
             "accounts/fireworks/models/mixtral-8x7b-instruct-hf", MIXTRAL_8X7B_INSTRUCT
         ),
         _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT_FP8),
-        _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
+        _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1-turbo", MIXTRAL_8X7B_INSTRUCT_FP8),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3.1 405b
         _DatabricksLlm("databricks-meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
@@ -361,7 +361,7 @@ def _text_models():
             "accounts/fireworks/models/llama-v3p1-405b-instruct", LLAMA_31_405B_CHAT_FP8
         ),
         _GroqLlm("llama-3.1-405b-reasoning", LLAMA_31_405B_CHAT_FP8),
-        _NvidiaLlm("meta/llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
+        _NvidiaLlm("meta/llama-3.1-405b-instruct-turbo", LLAMA_31_405B_CHAT_FP8),
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", LLAMA_31_405B_CHAT_FP8
         ),
@@ -375,7 +375,7 @@ def _text_models():
             "accounts/fireworks/models/llama-v3p1-70b-instruct", LLAMA_31_70B_CHAT_FP8
         ),
         _GroqLlm("llama-3.1-70b-versatile", LLAMA_31_70B_CHAT_FP8),
-        _NvidiaLlm("meta/llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
+        _NvidiaLlm("meta/llama-3.1-70b-instruct-turbo", LLAMA_31_70B_CHAT_FP8),
         _PerplexityLlm("llama-3.1-70b-instruct", LLAMA_31_70B_CHAT),
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", LLAMA_31_70B_CHAT_FP8
@@ -390,7 +390,7 @@ def _text_models():
             "accounts/fireworks/models/llama-v3p1-8b-instruct", LLAMA_31_8B_CHAT_FP8
         ),
         _GroqLlm("llama-3.1-8b-instant", LLAMA_31_8B_CHAT_FP8),
-        _NvidiaLlm("meta/llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
+        _NvidiaLlm("meta/llama-3.1-8b-instruct-turbo", LLAMA_31_8B_CHAT_FP8),
         _PerplexityLlm("llama-3.1-8b-instruct", LLAMA_31_8B_CHAT),
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", LLAMA_31_8B_CHAT_FP8
