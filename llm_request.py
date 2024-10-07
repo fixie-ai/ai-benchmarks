@@ -4,10 +4,12 @@ import base64
 import dataclasses
 import io
 import json
-import pydub
 import mimetypes
+import numpy as np
 import os
 import re
+import soundfile as sf
+import soxr
 import time
 import urllib
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple
@@ -93,6 +95,7 @@ class ApiContext:
     api_key: Optional[str] = None
     base_url: Optional[str] = None
     peft: Optional[str] = None
+    ws: Optional[aiohttp.ClientWebSocketResponse] = None
 
     def __init__(self, session, index, name, func, args, prompt, files, tools):
         self.session = session
@@ -111,6 +114,10 @@ class ApiContext:
         self.base_url = args.base_url
         self.peft = args.peft
         self.metrics = ApiMetrics(model=self.name)
+
+    @property
+    def is_warmup(self):
+        return self.index == -1
 
     async def run(self, on_token: Optional[Callable[["ApiContext", str], None]] = None):
         response = None
@@ -232,11 +239,10 @@ def make_openai_ws_message(ctx: ApiContext):
     content = [{"type": "input_text", "text": ctx.prompt}]
     for file in ctx.files:
         if file.is_audio:
-            audio = pydub.AudioSegment.from_file(io.BytesIO(file.data))
-            pcm_data = (
-                audio.set_frame_rate(24000).set_channels(1).set_sample_width(2).raw_data
-            )
-            b64_data = base64.b64encode(pcm_data).decode("utf-8")
+            audio, sr = sf.read(io.BytesIO(file.data))
+            audio_24k = soxr.resample(audio, sr, 24000)
+            audio_pcm = (audio_24k * 32767).astype(np.int16).tobytes()
+            b64_data = base64.b64encode(audio_pcm).decode("utf-8")
             content.append({"type": "input_audio", "audio": b64_data})
         else:
             raise NotImplementedError("Images not yet supported in WebSocket mode")
@@ -326,23 +332,24 @@ async def openai_embed(ctx: ApiContext) -> ApiResult:
 class WebSocketResponse:
     """Mirrors the aiohttp.ClientHttpResponse interface, but for a WebSocket."""
 
-    def __init__(self, ws):
-        self.ws = ws
+    def __init__(self, ctx: ApiContext):
+        self.ctx = ctx
 
     @property
     def ok(self):
         return True
 
     async def release(self):
-        await self.ws.close()
+        if not self.ctx.is_warmup:
+            await self.ctx.ws.close()
 
 
 async def openai_ws(ctx: ApiContext) -> ApiResult:
     async def warmup_gen() -> TokenGenerator:
         yield " "
 
-    async def chunk_gen(ctx: ApiContext, ws) -> TokenGenerator:
-        async for msg in ws:
+    async def chunk_gen(ctx: ApiContext) -> TokenGenerator:
+        async for msg in ctx.ws:
             chunk = json.loads(msg.data)
             match chunk["type"]:
                 case "error":
@@ -358,19 +365,20 @@ async def openai_ws(ctx: ApiContext) -> ApiResult:
                     ctx.metrics.output_tokens = response["usage"]["output_tokens"]
                     break
 
-    base_url = ctx.base_url or "wss://api.openai.com/v1/realtime"
-    url = f"{base_url}?model={ctx.model}"
-    api_key = get_api_key(ctx, "OPENAI_API_KEY")
-    headers = {"Authorization": f"Bearer {api_key}", "OpenAI-Beta": "realtime=v1"}
-    ws = await ctx.session.ws_connect(url, headers=headers)
-    if not ctx.prompt:
-        return WebSocketResponse(ws), warmup_gen()
+    if not ctx.ws:
+        base_url = ctx.base_url or "wss://api.openai.com/v1/realtime"
+        url = f"{base_url}?model={ctx.model}"
+        api_key = get_api_key(ctx, "OPENAI_API_KEY")
+        headers = {"Authorization": f"Bearer {api_key}", "OpenAI-Beta": "realtime=v1"}
+        ctx.ws = await ctx.session.ws_connect(url, headers=headers)
+        if ctx.is_warmup:
+            return WebSocketResponse(ctx), warmup_gen()
 
     create_item = {
         "type": "conversation.item.create",
         "item": make_openai_ws_message(ctx),
     }
-    await ws.send_json(create_item)
+    await ctx.ws.send_json(create_item)
 
     modalities = ["text"]
     if any(file.is_audio for file in ctx.files):
@@ -379,8 +387,8 @@ async def openai_ws(ctx: ApiContext) -> ApiResult:
         "type": "response.create",
         "response": {"modalities": modalities},
     }
-    await ws.send_json(create_response)
-    return WebSocketResponse(ws), chunk_gen(ctx, ws)
+    await ctx.ws.send_json(create_response)
+    return WebSocketResponse(ctx), chunk_gen(ctx)
 
 
 def make_anthropic_messages(prompt: str, files: Optional[List[InputFile]] = None):
