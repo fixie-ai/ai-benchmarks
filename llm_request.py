@@ -209,10 +209,18 @@ def make_openai_url_and_headers(ctx: ApiContext, path: str):
     url = ctx.base_url or "https://api.openai.com/v1"
     hostname = urllib.parse.urlparse(url).hostname
     use_azure_openai = hostname and hostname.endswith("openai.azure.com")
+    use_ovh = hostname and hostname.endswith("cloud.ovh.net")
     if use_azure_openai:
         api_key = get_api_key(ctx, "AZURE_OPENAI_API_KEY")
         headers = make_headers(api_key=api_key)
         url += f"/openai/deployments/{ctx.model.replace('.', '')}{path}?api-version={AZURE_OPENAI_API_VERSION}"
+    elif use_ovh:
+        api_key = get_api_key(ctx, "OVH_AI_ENDPOINTS_API_KEY")
+        headers = {
+            "content-type": "application/json",
+            "authorization": api_key
+        }
+        url += path
     else:
         api_key = ctx.api_key if ctx.base_url else get_api_key(ctx, "OPENAI_API_KEY")
         headers = make_headers(auth_token=api_key)
