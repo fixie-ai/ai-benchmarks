@@ -225,7 +225,8 @@ class _OvhLlm(_Llm):
     def __init__(self, model: str, display_model: Optional[str] = None):
         super().__init__(
             "",
-            "cloud.ovh.net/" + display_model,
+            f"endpoints.ai.cloud.ovh.net/{model}",
+            api_key=os.getenv("OVH_AI_ENDPOINTS_API_KEY"),
             base_url=f"https://{model}.endpoints.kepler.ai.cloud.ovh.net/api/openai_compat/v1",
         )
 
@@ -352,6 +353,7 @@ def _text_models():
         _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT_FP8),
         _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1-turbo", MIXTRAL_8X7B_INSTRUCT_FP8),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
+        _OvhLlm("mixtral-8x7b-instruct-v01", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3.1 405b
         _DatabricksLlm("databricks-meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
         _DeepInfraLlm(
@@ -365,7 +367,7 @@ def _text_models():
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", LLAMA_31_405B_CHAT_FP8
         ),
-        # _OvhLlm("llama-3p1-405b-instruct", LLAMA_31_405B_CHAT),
+        # _OvhLlm("llama-3-1-405b-instruct", LLAMA_31_405B_CHAT),
         # Llama 3.1 70b
         _CerebrasLlm("llama3.1-70b", LLAMA_31_70B_CHAT),
         _CloudflareLlm("@cf/meta/llama-3.1-70b-preview", LLAMA_31_70B_CHAT),
@@ -380,7 +382,7 @@ def _text_models():
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo", LLAMA_31_70B_CHAT_FP8
         ),
-        # _OvhLlm("llama-3p1-8b-instruct", LLAMA_31_8B_CHAT),
+        _OvhLlm("llama-3-1-70b-instruct", LLAMA_31_70B_CHAT),
         # Llama 3.1 8b
         _CerebrasLlm("llama3.1-8b", LLAMA_31_8B_CHAT),
         _CloudflareLlm("@cf/meta/llama-3.1-8b-preview", LLAMA_31_8B_CHAT),
@@ -395,7 +397,7 @@ def _text_models():
         _TogetherLlm(
             "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", LLAMA_31_8B_CHAT_FP8
         ),
-        # _OvhLlm("llama-3p1-70b-instruct", LLAMA_31_70B_CHAT),
+        # _OvhLlm("llama-3-1-8b-instruct", LLAMA_31_8B_CHAT),
         # Llama 3 70b
         _DatabricksLlm("databricks-meta-llama-3-70b-instruct", LLAMA_3_70B_CHAT),
         _DeepInfraLlm("meta-llama/Meta-Llama-3-70B-Instruct", LLAMA_3_70B_CHAT),

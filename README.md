@@ -14,6 +14,7 @@ Large Language Models (LLMs):
   - Cloudflare
   - Groq
   - OctoAI
+  - OVHcloud
   - Perplexity
   - Together
 - Mixtral 8x7B from several different providers, including
@@ -21,6 +22,7 @@ Large Language Models (LLMs):
   - Azure
   - Groq
   - OctoAI
+  - OVHcloud
   - Perplexity
 
 Embedding Models:
