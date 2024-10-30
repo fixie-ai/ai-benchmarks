@@ -37,7 +37,7 @@ Text-to-Speech Models (TTS):
 
 ## Leaderboard
 
-See [https://thefastest.ai](thefastest.ai) for the current leaderboard.
+See [thefastest.ai](https://thefastest.ai) for the current leaderboard.
 
 ### Test methodology
 
