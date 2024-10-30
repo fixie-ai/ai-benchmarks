@@ -37,18 +37,16 @@ Text-to-Speech Models (TTS):
 
 ## Leaderboard
 
-Snapshot below, click it to jump to the latest spreadsheet.
-[![Screenshot 2024-03-05 at 4 08 20 PM](https://github.com/fixie-ai/ai-benchmarks/assets/1821693/97651011-fc8e-4481-bac9-cba0927aa485)](https://docs.google.com/spreadsheets/d/e/2PACX-1vTPttBIJ676Ke5eKXh8EoOe9XrMZ1kgVh-hvuO-LP41GTNIbsHwx1bcb_SsoB3BTDZLNeMspqLQMXSS/pubhtml?gid=0&single=true)
+See [https://thefastest.ai](thefastest.ai) for the current leaderboard.
 
 ### Test methodology
 
-- Tests are run from a Google Cloud console in us-west1.
-- Input requests are short, typically a single message (~20 tokens), and typically ask for a brief output response.
-- Max output tokens is set to 100, to avoid distortion of TPS values from long outputs.
+- Tests are run from a set of distributed benchmark runners.
+- Input requests are relatively brief, typically about 1000 tokens, and ask for a brief output response.
+- Max output tokens is set to 20, to avoid distortion of TPS values from long outputs.
 - A warmup connection is made to remove any connection setup latency.
 - The TTFT clock starts when the HTTP request is made and stops when the first token result is received in the response stream.
 - For each provider, three separate inferences are done, and the best result is kept (to remove any outliers due to queuing etc).
-- A best result is selected on 3 different days, and the median of these values is displayed.
 
 ## Initial setup
 
