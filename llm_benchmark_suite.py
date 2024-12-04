@@ -125,6 +125,18 @@ class _Llm:
         return await llm_benchmark.run(full_argv)
 
 
+class _CentmlLlm(_Llm):
+    """See https://docs.centml.ai/resources/pricing"""
+
+    def __init__(self, model: str, display_model: Optional[str] = None):
+        super().__init__(
+            model,
+            "centml.ai/" + (display_model or model),
+            api_key=os.getenv("CENTML_API_KEY"),
+            base_url="https://api.centml.com/openai/v1",
+        )
+
+
 class _CerebrasLlm(_Llm):
     """See https://docs.cerebras.ai/en/latest/wsc/Model-zoo/MZ-overview.html#list-of-models"""
 
@@ -355,6 +367,7 @@ def _text_models():
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _OvhLlm("mixtral-8x7b-instruct-v01", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3.1 405b
+        _CentmlLlm("meta-llama/Llama-3.1-405B-Instruct-FP8", LLAMA_31_405B_CHAT),
         _DatabricksLlm("databricks-meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
         _DeepInfraLlm(
             "meta-llama/Meta-Llama-3.1-405B-Instruct", LLAMA_31_405B_CHAT_FP8
@@ -459,6 +472,7 @@ def _tools_models():
         # _FireworksLlm(
         #    "accounts/fireworks/models/llama-v3p1-405b-instruct", LLAMA_31_405B_CHAT_FP8
         # ), returns "FUNCTION" and the call as text
+        _CentmlLlm("meta-llama/Llama-3.1-405B-Instruct-FP8", LLAMA_31_405B_CHAT_FP8),
         _GroqLlm("llama-3.1-405b-reasoning", LLAMA_31_405B_CHAT_FP8),
         _GroqLlm("llama-3.1-70b-versatile", LLAMA_31_70B_CHAT_FP8),
         _GroqLlm("llama-3.1-8b-instant", LLAMA_31_8B_CHAT_FP8),
