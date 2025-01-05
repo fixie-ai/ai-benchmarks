@@ -27,6 +27,7 @@ GPT_35_TURBO_0125 = "gpt-3.5-turbo-0125"
 GPT_35_TURBO_1106 = "gpt-3.5-turbo-1106"
 GEMINI_1_5_PRO = "gemini-1.5-pro"
 GEMINI_1_5_FLASH = "gemini-1.5-flash"
+LLAMA_33_70B_INSTRUCT = "Llama-3.3-70B-Instruct"
 LLAMA_31_405B_CHAT = "llama-3.1-405b-chat"
 LLAMA_31_405B_CHAT_FP8 = "llama-3.1-405b-chat-fp8"
 LLAMA_31_70B_CHAT = "llama-3.1-70b-chat"
@@ -367,7 +368,6 @@ def _text_models():
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _OvhLlm("mixtral-8x7b-instruct-v01", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3.1 405b
-        _CentmlLlm("meta-llama/Llama-3.1-405B-Instruct-FP8", LLAMA_31_405B_CHAT),
         _DatabricksLlm("databricks-meta-llama-3.1-405b-instruct", LLAMA_31_405B_CHAT),
         _DeepInfraLlm(
             "meta-llama/Meta-Llama-3.1-405B-Instruct", LLAMA_31_405B_CHAT_FP8
@@ -381,6 +381,8 @@ def _text_models():
             "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", LLAMA_31_405B_CHAT_FP8
         ),
         # _OvhLlm("llama-3-1-405b-instruct", LLAMA_31_405B_CHAT),
+        # Llama 3.3 70b
+        _CentmlLlm("meta-llama/Llama-3.3-70B-Instruct", LLAMA_33_70B_INSTRUCT),
         # Llama 3.1 70b
         _CerebrasLlm("llama3.1-70b", LLAMA_31_70B_CHAT),
         _CloudflareLlm("@cf/meta/llama-3.1-70b-preview", LLAMA_31_70B_CHAT),
@@ -472,7 +474,7 @@ def _tools_models():
         # _FireworksLlm(
         #    "accounts/fireworks/models/llama-v3p1-405b-instruct", LLAMA_31_405B_CHAT_FP8
         # ), returns "FUNCTION" and the call as text
-        _CentmlLlm("meta-llama/Llama-3.1-405B-Instruct-FP8", LLAMA_31_405B_CHAT_FP8),
+        _CentmlLlm("meta-llama/Llama-3.3-70B-Instruct", LLAMA_33_70B_INSTRUCT),
         _GroqLlm("llama-3.1-405b-reasoning", LLAMA_31_405B_CHAT_FP8),
         _GroqLlm("llama-3.1-70b-versatile", LLAMA_31_70B_CHAT_FP8),
         _GroqLlm("llama-3.1-8b-instant", LLAMA_31_8B_CHAT_FP8),
