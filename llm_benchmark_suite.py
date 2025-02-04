@@ -351,7 +351,6 @@ def _text_models():
             "accounts/fireworks/models/mixtral-8x7b-instruct-hf", MIXTRAL_8X7B_INSTRUCT
         ),
         _GroqLlm("mixtral-8x7b-32768", MIXTRAL_8X7B_INSTRUCT_FP8),
-        _NvidiaLlm("mistralai/mixtral-8x7b-instruct-v0.1-turbo", MIXTRAL_8X7B_INSTRUCT_FP8),
         _TogetherLlm("mistralai/Mixtral-8x7B-Instruct-v0.1", MIXTRAL_8X7B_INSTRUCT),
         _OvhLlm("mixtral-8x7b-instruct-v01", MIXTRAL_8X7B_INSTRUCT),
         # Llama 3.1 405b
