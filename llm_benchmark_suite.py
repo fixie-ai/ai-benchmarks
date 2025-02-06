@@ -491,8 +491,7 @@ def _audio_models():
         _Llm(GPT_4O_REALTIME_PREVIEW),
         _Llm(GEMINI_1_5_PRO),
         _Llm(GEMINI_1_5_FLASH),
-        _UltravoxLlm("fixie-ai/ultravox-8B", "ultravox-v0.4-8b"),
-        _UltravoxLlm("fixie-ai/ultravox-70B", "ultravox-v0.4-70b"),
+        _UltravoxLlm("fixie-ai/ultravox", "ultravox-v0.5-70b"),
         _Llm(
             "ultravox",
             "baseten.co/ultravox-v0.4",
